@@ -129,6 +129,7 @@ export default function App() {
   const [page, setPage] = useState(1)
   const [brokerFee, setBrokerFee] = useState(3)
   const [salesTax, setSalesTax] = useState(8)
+  const [search, setSearch] = useState('')
 
   const hub = HUBS[hubIndex]
   const category = CATEGORIES[categoryIndex]
@@ -154,12 +155,15 @@ export default function App() {
   const sorted = useMemo(() => {
     const copy = [...adjustedData]
     switch (sort) {
-      case 'margin':       return copy.sort((a, b) => b.margin - a.margin)
-      case 'profit':       return copy.sort((a, b) => b.profit - a.profit)
-      case 'liquidityDesc': return copy.sort((a, b) => b.liquidityScore - a.liquidityScore)
-      case 'liquidityAsc':  return copy.sort((a, b) => a.liquidityScore - b.liquidityScore)
+      case 'margin':        copy.sort((a, b) => b.margin - a.margin); break
+      case 'profit':        copy.sort((a, b) => b.profit - a.profit); break
+      case 'liquidityDesc': copy.sort((a, b) => b.liquidityScore - a.liquidityScore); break
+      case 'liquidityAsc':  copy.sort((a, b) => a.liquidityScore - b.liquidityScore); break
     }
-  }, [adjustedData, sort])
+    if (!search.trim()) return copy
+    const q = search.toLowerCase()
+    return copy.filter(item => item.typeName.toLowerCase().includes(q))
+  }, [adjustedData, sort, search])
 
   const topTrades = useMemo(() => {
     const score = (item: typeof adjustedData[0]) => {
@@ -173,6 +177,7 @@ export default function App() {
   const totalPages = pageSize === null ? 1 : Math.ceil(sorted.length / pageSize)
   const paginated = pageSize === null ? sorted : sorted.slice((page - 1) * pageSize, page * pageSize)
 
+  useEffect(() => { setSearch('') }, [categoryIndex])
   useEffect(() => { setPage(1) }, [sorted, pageSize])
 
   const pageButtons = useMemo(() => buildPageButtons(page, totalPages), [page, totalPages])
@@ -234,6 +239,19 @@ export default function App() {
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </Select>
+              </div>
+
+              <div className="flex flex-col gap-1.5 min-w-48">
+                <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                  Search
+                </label>
+                <input
+                  type="text"
+                  placeholder="Filter items..."
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="h-9 px-3 text-xs bg-secondary border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
               </div>
 
               <div className="flex flex-col gap-1.5">
