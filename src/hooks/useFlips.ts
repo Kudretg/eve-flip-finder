@@ -1,12 +1,34 @@
 import { useQuery } from '@tanstack/react-query'
 import { getMarketStats, getMarketGroupTypes } from '@/lib/api'
+import type { MarketType } from '@/lib/api'
 import type { FlipItem } from '@/types'
 
 const MAX_TYPES = 500
 const MIN_LIQUIDITY = 1
 
+const GROUP_TYPES_TTL = 5 * 60 * 1000
+const groupTypesCache = new Map<number, { data: MarketType[]; ts: number }>()
+
+async function getCachedGroupTypes(groupId: number): Promise<MarketType[]> {
+  const entry = groupTypesCache.get(groupId)
+  if (entry && Date.now() - entry.ts < GROUP_TYPES_TTL) return entry.data
+  const data = await getMarketGroupTypes(groupId)
+  groupTypesCache.set(groupId, { data, ts: Date.now() })
+  return data
+}
+
+function volumeColor(vol: number, otherVol: number): string {
+  const max = Math.max(vol, otherVol)
+  if (max === 0) return 'hsl(0 90% 50%)'
+  const ratio = vol / max
+  const hue = Math.round(142 * ratio)
+  const sat = Math.round(90 - 20 * ratio)
+  const light = Math.round(50 - 5 * ratio)
+  return `hsl(${hue} ${sat}% ${light}%)`
+}
+
 async function fetchFlips(regionId: number, groupIds: number[]): Promise<FlipItem[]> {
-  const typeArrays = await Promise.all(groupIds.map(gid => getMarketGroupTypes(gid)))
+  const typeArrays = await Promise.all(groupIds.map(gid => getCachedGroupTypes(gid)))
   const types = typeArrays.flat().slice(0, MAX_TYPES)
 
   const statsResults = await Promise.allSettled(
@@ -42,6 +64,8 @@ async function fetchFlips(regionId: number, groupIds: number[]): Promise<FlipIte
       buyVolume: bv,
       sellVolume: sv,
       liquidityScore,
+      buyColor: volumeColor(bv, sv),
+      sellColor: volumeColor(sv, bv),
     })
   }
   return flips
@@ -53,6 +77,7 @@ export function useFlips(regionId: number, groupIds: number[]) {
     queryFn: () => fetchFlips(regionId, groupIds),
     enabled: groupIds.length > 0,
     staleTime: 60_000,
-    retry: 1,
+    retry: 2,
+    retryDelay: (attempt: number) => Math.min(1000 * 2 ** attempt, 10_000),
   })
 }

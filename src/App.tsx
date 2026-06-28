@@ -48,15 +48,6 @@ const SORT_OPTIONS: { label: string; value: SortKey }[] = [
   { label: 'Liquidity (Low → High)', value: 'liquidityAsc' },
 ]
 
-function volumeColor(vol: number, otherVol: number): string {
-  const max = Math.max(vol, otherVol)
-  if (max === 0) return 'hsl(0 90% 50%)'
-  const ratio = vol / max
-  const hue = Math.round(142 * ratio)
-  const sat = Math.round(90 - 20 * ratio)
-  const light = Math.round(50 - 5 * ratio)
-  return `hsl(${hue} ${sat}% ${light}%)`
-}
 
 function SkeletonRows() {
   return (
@@ -127,6 +118,8 @@ export default function App() {
   const paginated = pageSize === null ? sorted : sorted.slice((page - 1) * pageSize, page * pageSize)
 
   useEffect(() => { setPage(1) }, [sorted, pageSize])
+
+  const pageButtons = useMemo(() => buildPageButtons(page, totalPages), [page, totalPages])
 
   return (
     <div className="min-h-screen bg-background">
@@ -250,10 +243,10 @@ export default function App() {
                       </p>
                       <p className="text-[10px] text-green font-mono">+{formatISK(item.profit)} ISK</p>
                       <div className="flex gap-2 mt-0.5">
-                        <span className="text-[10px] font-mono" style={{ color: volumeColor(item.buyVolume, item.sellVolume) }}>
+                        <span className="text-[10px] font-mono" style={{ color: item.buyColor }}>
                           ↑{formatVolume(item.buyVolume)}
                         </span>
-                        <span className="text-[10px] font-mono" style={{ color: volumeColor(item.sellVolume, item.buyVolume) }}>
+                        <span className="text-[10px] font-mono" style={{ color: item.sellColor }}>
                           ↓{formatVolume(item.sellVolume)}
                         </span>
                       </div>
@@ -329,12 +322,12 @@ export default function App() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right font-mono text-xs">
-                          <span style={{ color: volumeColor(item.buyVolume, item.sellVolume) }}>
+                          <span style={{ color: item.buyColor }}>
                             {formatVolume(item.buyVolume)}
                           </span>
                         </TableCell>
                         <TableCell className="text-right font-mono text-xs">
-                          <span style={{ color: volumeColor(item.sellVolume, item.buyVolume) }}>
+                          <span style={{ color: item.sellColor }}>
                             {formatVolume(item.sellVolume)}
                           </span>
                         </TableCell>
@@ -358,7 +351,7 @@ export default function App() {
             >
               ‹
             </Button>
-            {buildPageButtons(page, totalPages).map((btn, i) =>
+            {pageButtons.map((btn, i) =>
               btn === '…' ? (
                 <span key={`ellipsis-${i}`} className="text-muted-foreground text-xs px-1">…</span>
               ) : (

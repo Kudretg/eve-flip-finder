@@ -8,6 +8,8 @@ export interface FlipItem {
   buyVolume: number
   sellVolume: number
   liquidityScore: number  // min(buyVolume, sellVolume) — the bottleneck leg of the flip
+  buyColor: string
+  sellColor: string
 }
 
 export type SortKey = 'margin' | 'profit' | 'liquidityDesc' | 'liquidityAsc'
