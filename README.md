@@ -1,32 +1,28 @@
-# React + TypeScript + Vite
+# EVE Market Flip Finder
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+A live market tool for finding buy/sell spread opportunities in EVE Online. Pulls real-time data from [evetycoon.com](https://evetycoon.com) and surfaces the most profitable station trades across major trade hubs.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Live market data** — fetches current buy/sell orders across all major trade hubs (Jita, Amarr, Dodixie, Rens, Hek), refreshed every 60 seconds
+- **Flip analysis** — shows best buy price, best sell price, profit in ISK, and margin % for every item in a category
+- **Buy & sell volume** — displays daily trade volume for both sides of the market separately so you can see how fast each leg of a flip will fill
+- **Red-to-green volume indicator** — each volume number is color-coded relative to the other side; both green means a healthy balanced market, the weaker side slides toward red so the bottleneck is immediately obvious
+- **Top Trades panel** — highlights the 5 best current opportunities scored by margin weighted by liquidity, so high-margin items with dead volume don't float to the top
+- **Category filtering** — browse by ship class, modules, drones, implants, skillbooks, and more; includes an All Items view that scans everything at once
+- **Flexible sorting** — sort by margin, profit, or liquidity (high/low)
+- **Pagination** — configurable page size (25 / 50 / 100 / All) with numbered page buttons
 
-## React Compiler
+## Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Vite + React 19 + TypeScript
+- TanStack Query v5 for data fetching and caching
+- Tailwind CSS v4
+- Data from [evetycoon.com](https://evetycoon.com) (no API key required)
 
-## Expanding the Oxlint configuration
+## Running locally
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev   # starts at http://localhost:5173
 ```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.

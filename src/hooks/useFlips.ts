@@ -2,8 +2,8 @@ import { useQuery } from '@tanstack/react-query'
 import { getMarketStats, getMarketGroupTypes } from '@/lib/api'
 import type { FlipItem } from '@/types'
 
-const MAX_TYPES = 120
-const MIN_VOLUME = 1
+const MAX_TYPES = 500
+const MIN_LIQUIDITY = 1
 
 async function fetchFlips(regionId: number, groupIds: number[]): Promise<FlipItem[]> {
   const typeArrays = await Promise.all(groupIds.map(gid => getMarketGroupTypes(gid)))
@@ -27,8 +27,11 @@ async function fetchFlips(regionId: number, groupIds: number[]): Promise<FlipIte
     if (!Number.isFinite(profit) || profit <= 0) continue
     const margin = (profit / minSell) * 100
     if (!Number.isFinite(margin)) continue
-    const volume = Math.max(sellVolume, buyVolume)
-    if (volume < MIN_VOLUME) continue
+    const bv = Number.isFinite(buyVolume) && buyVolume > 0 ? buyVolume : 0
+    const sv = Number.isFinite(sellVolume) && sellVolume > 0 ? sellVolume : 0
+    // liquidityScore = bottleneck: you need sellers to fill your buy order AND buyers to fill your sell order
+    const liquidityScore = Math.min(bv, sv)
+    if (liquidityScore < MIN_LIQUIDITY) continue
     flips.push({
       typeId: type.typeID,
       typeName: type.typeName,
@@ -36,7 +39,9 @@ async function fetchFlips(regionId: number, groupIds: number[]): Promise<FlipIte
       minSell: stats.minSell,
       profit,
       margin,
-      volume,
+      buyVolume: bv,
+      sellVolume: sv,
+      liquidityScore,
     })
   }
   return flips

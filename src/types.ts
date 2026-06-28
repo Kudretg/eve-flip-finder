@@ -5,10 +5,12 @@ export interface FlipItem {
   minSell: number
   profit: number
   margin: number
-  volume: number
+  buyVolume: number
+  sellVolume: number
+  liquidityScore: number  // min(buyVolume, sellVolume) — the bottleneck leg of the flip
 }
 
-export type SortKey = 'margin' | 'profit' | 'volumeDesc' | 'volumeAsc'
+export type SortKey = 'margin' | 'profit' | 'liquidityDesc' | 'liquidityAsc'
 
 export interface Hub {
   label: string
