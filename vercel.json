@@ -1,13 +1,8 @@
 {
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "framework": "vite",
-  "functions": {
-    "api/proxy.ts": {
-      "runtime": "nodejs20.x"
-    }
-  },
   "rewrites": [
-    { "source": "/api/v1/:path*", "destination": "/api/proxy?path=:path*" }
+    { "source": "/api/v1/:path*", "destination": "/api/proxy?path=:path*" },
+    { "source": "/((?!api).*)", "destination": "/index.html" }
   ]
 }

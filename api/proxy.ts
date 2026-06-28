@@ -1,25 +1,25 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node'
+export const config = { runtime: 'edge' }
 
-export default async function handler(req: VercelRequest, res: VercelResponse) {
-  const path = (req.query.path as string) ?? ''
-  const url = `https://evetycoon.com/api/v1/${path}`
+export default async function handler(request: Request): Promise<Response> {
+  const url = new URL(request.url)
+  const path = url.searchParams.get('path') ?? ''
 
   try {
-    const upstream = await fetch(url, {
+    const upstream = await fetch(`https://evetycoon.com/api/v1/${path}`, {
       headers: { Accept: 'application/json' },
     })
     const text = await upstream.text()
-    let data: unknown
-    try {
-      data = JSON.parse(text)
-    } catch {
-      return res.status(502).json({ error: 'Non-JSON from upstream', body: text.slice(0, 200) })
-    }
-    res
-      .setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=30')
-      .status(upstream.status)
-      .json(data)
+    return new Response(text, {
+      status: upstream.status,
+      headers: {
+        'Content-Type': 'application/json',
+        'Cache-Control': 's-maxage=60, stale-while-revalidate=30',
+      },
+    })
   } catch (err) {
-    res.status(502).json({ error: 'Upstream fetch failed', detail: String(err) })
+    return new Response(JSON.stringify({ error: String(err) }), {
+      status: 502,
+      headers: { 'Content-Type': 'application/json' },
+    })
   }
 }
