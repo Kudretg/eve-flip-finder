@@ -12,7 +12,7 @@ export interface FlipItem {
   sellColor: string
 }
 
-export type SortKey = 'margin' | 'profit' | 'liquidityDesc' | 'liquidityAsc'
+export type SortKey = 'margin' | 'profit' | 'liquidityDesc' | 'liquidityAsc' | 'buyVolume' | 'sellVolume'
 
 export interface Hub {
   label: string

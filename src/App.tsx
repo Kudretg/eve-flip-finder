@@ -84,6 +84,8 @@ const SORT_OPTIONS: { label: string; value: SortKey }[] = [
   { label: 'Profit (ISK)',          value: 'profit' },
   { label: 'Liquidity (High → Low)', value: 'liquidityDesc' },
   { label: 'Liquidity (Low → High)', value: 'liquidityAsc' },
+  { label: 'Buy Volume',             value: 'buyVolume' },
+  { label: 'Sell Volume',            value: 'sellVolume' },
 ]
 
 function SkeletonRows() {
@@ -160,6 +162,8 @@ export default function App() {
       case 'profit':        copy.sort((a, b) => b.profit - a.profit); break
       case 'liquidityDesc': copy.sort((a, b) => b.liquidityScore - a.liquidityScore); break
       case 'liquidityAsc':  copy.sort((a, b) => a.liquidityScore - b.liquidityScore); break
+      case 'buyVolume':     copy.sort((a, b) => b.buyVolume  - a.buyVolume);  break
+      case 'sellVolume':    copy.sort((a, b) => b.sellVolume - a.sellVolume); break
     }
     if (!search.trim()) return copy
     const q = search.toLowerCase()
