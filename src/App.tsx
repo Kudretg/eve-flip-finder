@@ -130,6 +130,7 @@ export default function App() {
   const [brokerFee, setBrokerFee] = useState(3)
   const [salesTax, setSalesTax] = useState(8)
   const [search, setSearch] = useState('')
+  const [showSuggestions, setShowSuggestions] = useState(false)
 
   const hub = HUBS[hubIndex]
   const category = CATEGORIES[categoryIndex]
@@ -173,6 +174,15 @@ export default function App() {
     }
     return [...adjustedData].sort((a, b) => score(b) - score(a)).slice(0, 10)
   }, [adjustedData])
+
+  const suggestions = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return []
+    const names = adjustedData.map(item => item.typeName)
+    const startsWith = names.filter(n => n.toLowerCase().startsWith(q))
+    const contains   = names.filter(n => !n.toLowerCase().startsWith(q) && n.toLowerCase().includes(q))
+    return [...startsWith, ...contains].slice(0, 10)
+  }, [adjustedData, search])
 
   const totalPages = pageSize === null ? 1 : Math.ceil(sorted.length / pageSize)
   const paginated = pageSize === null ? sorted : sorted.slice((page - 1) * pageSize, page * pageSize)
@@ -241,7 +251,7 @@ export default function App() {
                 </Select>
               </div>
 
-              <div className="flex flex-col gap-1.5 min-w-48">
+              <div className="flex flex-col gap-1.5 min-w-48 relative">
                 <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
                   Search
                 </label>
@@ -249,9 +259,25 @@ export default function App() {
                   type="text"
                   placeholder="Filter items..."
                   value={search}
-                  onChange={e => setSearch(e.target.value)}
+                  onChange={e => { setSearch(e.target.value); setShowSuggestions(true) }}
+                  onFocus={() => setShowSuggestions(true)}
+                  onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                   className="h-9 px-3 text-xs bg-secondary border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
+                {showSuggestions && suggestions.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-card border border-border rounded-md shadow-lg overflow-hidden">
+                    {suggestions.map(name => (
+                      <button
+                        key={name}
+                        type="button"
+                        onMouseDown={() => { setSearch(name); setShowSuggestions(false) }}
+                        className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
+                      >
+                        {name}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="flex flex-col gap-1.5">
