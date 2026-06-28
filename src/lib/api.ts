@@ -1,7 +1,7 @@
 const BASE = '/api/v1'
 
-async function apiFetch<T>(path: string): Promise<T> {
-  const res = await fetch(`${BASE}${path}`)
+async function apiFetch<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, signal ? { signal } : undefined)
   if (!res.ok) throw new Error(`API ${res.status}: ${path}`)
   return res.json() as Promise<T>
 }
@@ -31,8 +31,8 @@ export interface MarketType {
   description: string
 }
 
-export const getMarketStats = (regionId: number, typeId: number) =>
-  apiFetch<MarketStats>(`/market/stats/${regionId}/${typeId}`)
+export const getMarketStats = (regionId: number, typeId: number, signal?: AbortSignal) =>
+  apiFetch<MarketStats>(`/market/stats/${regionId}/${typeId}`, signal)
 
 export const getMarketGroupTypes = (groupId: number) =>
   apiFetch<MarketType[]>(`/market/groups/${groupId}/types`)

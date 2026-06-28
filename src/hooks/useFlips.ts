@@ -1,13 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
 import { getMarketStats, getMarketGroupTypes } from '@/lib/api'
-import type { MarketType } from '@/lib/api'
+import type { MarketStats, MarketType } from '@/lib/api'
 import type { FlipItem } from '@/types'
 
 const MAX_TYPES = 500
 const MIN_LIQUIDITY = 1
-
+const CONCURRENCY = 20
 const GROUP_TYPES_TTL = 5 * 60 * 1000
+const STATS_TTL = 60_000
+
 const groupTypesCache = new Map<number, { data: MarketType[]; ts: number }>()
+const statsCache = new Map<string, { data: MarketStats; ts: number }>()
 
 async function getCachedGroupTypes(groupId: number): Promise<MarketType[]> {
   const entry = groupTypesCache.get(groupId)
@@ -15,6 +18,42 @@ async function getCachedGroupTypes(groupId: number): Promise<MarketType[]> {
   const data = await getMarketGroupTypes(groupId)
   groupTypesCache.set(groupId, { data, ts: Date.now() })
   return data
+}
+
+async function getCachedStats(regionId: number, typeId: number, signal: AbortSignal): Promise<MarketStats> {
+  const key = `${regionId}:${typeId}`
+  const entry = statsCache.get(key)
+  if (entry && Date.now() - entry.ts < STATS_TTL) return entry.data
+  const data = await getMarketStats(regionId, typeId, signal)
+  statsCache.set(key, { data, ts: Date.now() })
+  return data
+}
+
+async function runConcurrent<T>(
+  tasks: (() => Promise<T>)[],
+  limit: number,
+  signal: AbortSignal
+): Promise<PromiseSettledResult<T>[]> {
+  const results: PromiseSettledResult<T>[] = new Array(tasks.length)
+  let index = 0
+
+  async function worker() {
+    while (index < tasks.length) {
+      const i = index++
+      if (signal.aborted) {
+        results[i] = { status: 'rejected', reason: new DOMException('Aborted', 'AbortError') }
+        continue
+      }
+      try {
+        results[i] = { status: 'fulfilled', value: await tasks[i]() }
+      } catch (e) {
+        results[i] = { status: 'rejected', reason: e }
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker))
+  return results
 }
 
 function volumeColor(vol: number, otherVol: number): string {
@@ -27,15 +66,15 @@ function volumeColor(vol: number, otherVol: number): string {
   return `hsl(${hue} ${sat}% ${light}%)`
 }
 
-async function fetchFlips(regionId: number, groupIds: number[]): Promise<FlipItem[]> {
+async function fetchFlips(regionId: number, groupIds: number[], signal: AbortSignal): Promise<FlipItem[]> {
   const typeArrays = await Promise.all(groupIds.map(gid => getCachedGroupTypes(gid)))
   const types = typeArrays.flat().slice(0, MAX_TYPES)
 
-  const statsResults = await Promise.allSettled(
-    types.map(t =>
-      getMarketStats(regionId, t.typeID).then(stats => ({ type: t, stats }))
-    )
+  const tasks = types.map(t => () =>
+    getCachedStats(regionId, t.typeID, signal).then(stats => ({ type: t, stats }))
   )
+
+  const statsResults = await runConcurrent(tasks, CONCURRENCY, signal)
 
   const flips: FlipItem[] = []
   for (const result of statsResults) {
@@ -51,7 +90,6 @@ async function fetchFlips(regionId: number, groupIds: number[]): Promise<FlipIte
     if (!Number.isFinite(margin)) continue
     const bv = Number.isFinite(buyVolume) && buyVolume > 0 ? buyVolume : 0
     const sv = Number.isFinite(sellVolume) && sellVolume > 0 ? sellVolume : 0
-    // liquidityScore = bottleneck: you need sellers to fill your buy order AND buyers to fill your sell order
     const liquidityScore = Math.min(bv, sv)
     if (liquidityScore < MIN_LIQUIDITY) continue
     flips.push({
@@ -74,7 +112,7 @@ async function fetchFlips(regionId: number, groupIds: number[]): Promise<FlipIte
 export function useFlips(regionId: number, groupIds: number[]) {
   return useQuery({
     queryKey: ['flips', regionId, ...groupIds],
-    queryFn: () => fetchFlips(regionId, groupIds),
+    queryFn: ({ signal }) => fetchFlips(regionId, groupIds, signal),
     enabled: groupIds.length > 0,
     staleTime: 60_000,
     retry: 2,

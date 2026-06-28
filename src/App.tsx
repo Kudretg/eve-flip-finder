@@ -10,30 +10,42 @@ import { formatISK, formatVolume } from '@/lib/utils'
 import type { Hub, Category, SortKey } from '@/types'
 
 const HUBS: Hub[] = [
-  { label: 'Jita', systemId: 30000142, regionId: 10000002 },
-  { label: 'Amarr', systemId: 30002187, regionId: 10000043 },
+  { label: 'Jita',    systemId: 30000142, regionId: 10000002 },
+  { label: 'Amarr',   systemId: 30002187, regionId: 10000043 },
   { label: 'Dodixie', systemId: 30002659, regionId: 10000032 },
-  { label: 'Rens', systemId: 30002510, regionId: 10000030 },
-  { label: 'Hek', systemId: 30002053, regionId: 10000042 },
+  { label: 'Rens',    systemId: 30002510, regionId: 10000030 },
+  { label: 'Hek',     systemId: 30002053, regionId: 10000042 },
 ]
 
 const ITEM_CATEGORIES: Category[] = [
-  { label: 'Standard Frigates', groupIds: [1616, 77, 72, 64, 61] },
-  { label: 'Standard Destroyers', groupIds: [468, 467, 466, 465, 3755] },
-  { label: 'Standard Cruisers', groupIds: [76, 75, 74, 73] },
-  { label: 'Standard Battlecruisers', groupIds: [473, 472, 471, 470] },
-  { label: 'Standard Battleships', groupIds: [81, 80, 79, 78] },
-  { label: 'Faction Cruisers', groupIds: [1371, 1370, 3537] },
-  { label: 'Faction Battleships', groupIds: [1380, 1379, 3538] },
-  { label: 'Armor Modules', groupIds: [2527, 2509, 1687, 1669, 1063, 1062, 1061, 1060, 615, 1686, 1685, 1684, 1683] },
-  { label: 'Shield Modules', groupIds: [688, 687, 2246, 1696, 1695, 1694, 1693, 1692, 778, 613, 612, 611, 610] },
+  { label: 'T1 Ships', groupIds: [
+    1616, 77, 72, 64, 61,        // T1 Frigates (by race)
+    468, 467, 466, 465, 3755,    // T1 Destroyers
+    76, 75, 74, 73,              // T1 Cruisers
+    473, 472, 471, 470,          // T1 Battlecruisers
+    81, 80, 79, 78,              // T1 Battleships
+    1371, 1370, 3537,            // Faction Cruisers
+    1380, 1379, 3538,            // Faction Battleships
+  ] },
+  { label: 'T2 Ships', groupIds: [
+    831, 830, 833, 834, 1896,    // T2 Frigates (Interceptors, Covert Ops, Bombers, EAS, AFs)
+    1422,                        // T2 Destroyers (Interdictors)
+    832, 894, 906, 920,          // T2 Cruisers (Logi, Recon, HAC, HIC)
+    540,                         // T2 Battlecruisers (Command Ships)
+    898, 900,                    // T2 Battleships (Black Ops, Marauders)
+  ] },
+  { label: 'T3 Ships',         groupIds: [963, 1305] },
+  { label: 'Armor Modules',    groupIds: [2527, 2509, 1687, 1669, 1063, 1062, 1061, 1060, 615, 1686, 1685, 1684, 1683] },
+  { label: 'Shield Modules',   groupIds: [688, 687, 2246, 1696, 1695, 1694, 1693, 1692, 778, 613, 612, 611, 610] },
   { label: 'Electronic Warfare', groupIds: [2249, 2154, 1937, 1936, 1935, 1426, 1085, 757, 686, 729, 728, 727] },
-  { label: 'Propulsion', groupIds: [2135, 1650, 542, 2783, 1941, 1931, 1088, 1087, 1086, 131] },
-  { label: 'Weapon Upgrades', groupIds: [2740, 2471, 2033, 2032, 801, 708, 707, 706, 648, 647, 646, 645] },
-  { label: 'Smartbombs', groupIds: [383, 382, 381, 380] },
-  { label: 'Combat Drones', groupIds: [911, 839, 838, 837] },
-  { label: 'Implants', groupIds: [622, 621, 620, 619, 618, 2478, 2477, 2476, 2475, 2474] },
-  { label: 'Skill Books', groupIds: [2152, 1824, 1823, 1748, 1747, 1746, 1745, 1323, 1110, 378, 377, 376] },
+  { label: 'Propulsion',       groupIds: [2135, 1650, 542, 2783, 1941, 1931, 1088, 1087, 1086, 131] },
+  { label: 'Weapon Upgrades',  groupIds: [2740, 2471, 2033, 2032, 801, 708, 707, 706, 648, 647, 646, 645] },
+  { label: 'Smartbombs',       groupIds: [383, 382, 381, 380] },
+  { label: 'Combat Drones',    groupIds: [911, 839, 838, 837] },
+  { label: 'Mining Equipment', groupIds: [483, 484, 716, 438, 397, 1295, 526, 527] },
+  { label: 'Boosters',         groupIds: [977, 3246, 3247, 3248] },
+  { label: 'Implants',         groupIds: [622, 621, 620, 619, 618, 2478, 2477, 2476, 2475, 2474] },
+  { label: 'Skill Books',      groupIds: [2152, 1824, 1823, 1748, 1747, 1746, 1745, 1323, 1110, 378, 377, 376] },
 ]
 
 const CATEGORIES: Category[] = [
@@ -42,12 +54,11 @@ const CATEGORIES: Category[] = [
 ]
 
 const SORT_OPTIONS: { label: string; value: SortKey }[] = [
-  { label: 'Margin %', value: 'margin' },
-  { label: 'Profit (ISK)', value: 'profit' },
+  { label: 'Margin %',              value: 'margin' },
+  { label: 'Profit (ISK)',          value: 'profit' },
   { label: 'Liquidity (High → Low)', value: 'liquidityDesc' },
   { label: 'Liquidity (Low → High)', value: 'liquidityAsc' },
 ]
-
 
 function SkeletonRows() {
   return (
@@ -90,29 +101,48 @@ export default function App() {
   const [sort, setSort] = useState<SortKey>('margin')
   const [pageSize, setPageSize] = useState<PageSize>(50)
   const [page, setPage] = useState(1)
+  const [brokerFee, setBrokerFee] = useState(3)
+  const [salesTax, setSalesTax] = useState(8)
 
   const hub = HUBS[hubIndex]
   const category = CATEGORIES[categoryIndex]
 
   const { data, isLoading, isError, error } = useFlips(hub.regionId, category.groupIds)
 
-  const sorted = useMemo(() => {
+  // Apply broker fee + sales tax, then filter to >= 5% post-fee margin
+  const adjustedData = useMemo(() => {
     if (!data) return []
-    const copy = [...data]
+    const bf = brokerFee / 100
+    const st = salesTax / 100
+    return data
+      .map(item => {
+        // Buy order cost: maxBuy + broker fee on buy side
+        // Sell order revenue: minSell - broker fee on sell side - sales tax
+        const adjProfit = item.minSell * (1 - bf - st) - item.maxBuy * (1 + bf)
+        const adjMargin = (adjProfit / item.minSell) * 100
+        return { ...item, profit: adjProfit, margin: adjMargin }
+      })
+      .filter(item => item.margin >= 5)
+  }, [data, brokerFee, salesTax])
+
+  const sorted = useMemo(() => {
+    const copy = [...adjustedData]
     switch (sort) {
-      case 'margin': return copy.sort((a, b) => b.margin - a.margin)
-      case 'profit': return copy.sort((a, b) => b.profit - a.profit)
+      case 'margin':       return copy.sort((a, b) => b.margin - a.margin)
+      case 'profit':       return copy.sort((a, b) => b.profit - a.profit)
       case 'liquidityDesc': return copy.sort((a, b) => b.liquidityScore - a.liquidityScore)
-      case 'liquidityAsc': return copy.sort((a, b) => a.liquidityScore - b.liquidityScore)
+      case 'liquidityAsc':  return copy.sort((a, b) => a.liquidityScore - b.liquidityScore)
     }
-  }, [data, sort])
+  }, [adjustedData, sort])
 
   const topTrades = useMemo(() => {
-    if (!data) return []
-    return [...data]
-      .sort((a, b) => (b.margin * Math.log10(b.liquidityScore + 1)) - (a.margin * Math.log10(a.liquidityScore + 1)))
+    return [...adjustedData]
+      .sort((a, b) =>
+        (Math.log10(b.profit + 1) * Math.log10(b.liquidityScore + 1) * b.margin) -
+        (Math.log10(a.profit + 1) * Math.log10(a.liquidityScore + 1) * a.margin)
+      )
       .slice(0, 5)
-  }, [data])
+  }, [adjustedData])
 
   const totalPages = pageSize === null ? 1 : Math.ceil(sorted.length / pageSize)
   const paginated = pageSize === null ? sorted : sorted.slice((page - 1) * pageSize, page * pageSize)
@@ -182,6 +212,36 @@ export default function App() {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                  Broker %
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="10"
+                  step="0.1"
+                  value={brokerFee}
+                  onChange={e => setBrokerFee(Math.max(0, Number(e.target.value)))}
+                  className="h-9 w-20 px-3 text-xs bg-secondary border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                  Tax %
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="20"
+                  step="0.1"
+                  value={salesTax}
+                  onChange={e => setSalesTax(Math.max(0, Number(e.target.value)))}
+                  className="h-9 w-20 px-3 text-xs bg-secondary border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
                   Per Page
                 </label>
                 <div className="flex gap-1">
@@ -238,9 +298,14 @@ export default function App() {
                           {item.margin.toFixed(1)}%
                         </Badge>
                       </div>
-                      <p className="text-xs font-medium text-foreground leading-tight line-clamp-2">
+                      <a
+                        href={`https://evetycoon.com/market/${item.typeId}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-xs font-medium text-foreground leading-tight line-clamp-2 hover:text-primary transition-colors"
+                      >
                         {item.typeName}
-                      </p>
+                      </a>
                       <p className="text-[10px] text-green font-mono">+{formatISK(item.profit)} ISK</p>
                       <div className="flex gap-2 mt-0.5">
                         <span className="text-[10px] font-mono" style={{ color: item.buyColor }}>
@@ -281,7 +346,7 @@ export default function App() {
                     <TableHead className="w-[220px]">Item</TableHead>
                     <TableHead className="text-right">Buy Price</TableHead>
                     <TableHead className="text-right">Sell Price</TableHead>
-                    <TableHead className="text-right">Profit</TableHead>
+                    <TableHead className="text-right">Profit (after fees)</TableHead>
                     <TableHead className="text-right">Margin</TableHead>
                     <TableHead className="text-right" title="Daily units bought (how fast your sell order fills)">Buy Vol</TableHead>
                     <TableHead className="text-right" title="Daily units sold (how fast your buy order fills)">Sell Vol</TableHead>
@@ -300,7 +365,14 @@ export default function App() {
                     paginated.map(item => (
                       <TableRow key={item.typeId}>
                         <TableCell className="font-medium text-foreground">
-                          {item.typeName}
+                          <a
+                            href={`https://evetycoon.com/market/${item.typeId}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="hover:text-primary transition-colors"
+                          >
+                            {item.typeName}
+                          </a>
                         </TableCell>
                         <TableCell className="text-right text-muted-foreground font-mono text-xs">
                           {formatISK(item.maxBuy)} ISK
@@ -379,7 +451,7 @@ export default function App() {
         )}
 
         <p className="text-xs text-muted-foreground text-center mt-4">
-          Data from evetycoon.com · Refreshes every 60s · Prices in ISK
+          Data from evetycoon.com · Refreshes every 60s · Profits shown after broker &amp; tax fees
         </p>
       </div>
     </div>
