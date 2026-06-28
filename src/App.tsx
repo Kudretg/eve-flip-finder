@@ -136,12 +136,12 @@ export default function App() {
   }, [adjustedData, sort])
 
   const topTrades = useMemo(() => {
-    return [...adjustedData]
-      .sort((a, b) =>
-        (Math.log10(b.profit + 1) * Math.log10(b.liquidityScore + 1) * b.margin) -
-        (Math.log10(a.profit + 1) * Math.log10(a.liquidityScore + 1) * a.margin)
-      )
-      .slice(0, 5)
+    const score = (item: typeof adjustedData[0]) => {
+      const mx = Math.max(item.buyVolume, item.sellVolume)
+      const balance = mx === 0 ? 0 : Math.min(item.buyVolume, item.sellVolume) / mx
+      return item.margin * Math.log10(item.profit + 1) * Math.log10(item.liquidityScore + 1) * balance
+    }
+    return [...adjustedData].sort((a, b) => score(b) - score(a)).slice(0, 10)
   }, [adjustedData])
 
   const totalPages = pageSize === null ? 1 : Math.ceil(sorted.length / pageSize)
@@ -277,7 +277,7 @@ export default function App() {
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {isLoading
-              ? Array.from({ length: 5 }).map((_, i) => (
+              ? Array.from({ length: 10 }).map((_, i) => (
                   <Card key={i} className="border-border/50">
                     <CardContent className="pt-3 pb-3 px-3 flex flex-col gap-2">
                       <Skeleton className="h-3 w-full" />
