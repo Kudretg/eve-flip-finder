@@ -133,6 +133,7 @@ export default function App() {
   const [salesTax, setSalesTax] = useState(8)
   const [search, setSearch] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
+  const [minMargin, setMinMargin] = useState(5)
 
   const hub = HUBS[hubIndex]
   const category = CATEGORIES[categoryIndex]
@@ -152,8 +153,8 @@ export default function App() {
         const adjMargin = (adjProfit / item.minSell) * 100
         return { ...item, profit: adjProfit, margin: adjMargin }
       })
-      .filter(item => item.margin >= 5)
-  }, [data, brokerFee, salesTax])
+      .filter(item => item.margin >= minMargin)
+  }, [data, brokerFee, salesTax, minMargin])
 
   const sorted = useMemo(() => {
     const copy = [...adjustedData]
@@ -310,6 +311,21 @@ export default function App() {
                   step="0.1"
                   value={salesTax}
                   onChange={e => setSalesTax(Math.max(0, Number(e.target.value)))}
+                  className="h-9 w-20 px-3 text-xs bg-secondary border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                  Min Margin %
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="1"
+                  value={minMargin}
+                  onChange={e => setMinMargin(Math.max(0, Number(e.target.value)))}
                   className="h-9 w-20 px-3 text-xs bg-secondary border border-border rounded-md text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
               </div>
