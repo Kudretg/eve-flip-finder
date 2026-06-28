@@ -28,13 +28,25 @@ const ITEM_CATEGORIES: Category[] = [
     1380, 1379, 3538,            // Faction Battleships
   ] },
   { label: 'T2 Ships', groupIds: [
-    831, 830, 833, 834, 1896,    // T2 Frigates (Interceptors, Covert Ops, Bombers, EAS, AFs)
-    1422,                        // T2 Destroyers (Interdictors)
-    832, 894, 906, 920,          // T2 Cruisers (Logi, Recon, HAC, HIC)
-    540,                         // T2 Battlecruisers (Command Ships)
-    898, 900,                    // T2 Battleships (Black Ops, Marauders)
+    400, 401, 402, 403,          // Interceptors
+    421, 422, 423, 424,          // Covert Ops + Stealth Bombers
+    433, 434, 435, 436, 2536,    // Assault Frigates (incl. Triglavian)
+    1066, 1067, 1068, 1069,      // Electronic Attack Frigates
+    2147, 2148, 2149, 2150,      // Logistics Frigates
+    826, 829, 832, 835,          // Interdictors
+    2126, 2131, 2132, 2133, 2537, 3764, // Command Destroyers (incl. Trig + ORE)
+    449, 450, 451, 452, 2535,    // Heavy Assault Cruisers
+    827, 830, 833, 836,          // Recon Ships
+    1071, 1072, 1073, 1074,      // Heavy Interdiction Cruisers
+    438, 439, 440, 441, 2526,    // Logistics Cruisers (incl. Triglavian)
+    825, 828, 831, 834,          // Command Ships
+    1081, 1082, 1083, 1084, 3744, // Marauders (incl. Triglavian)
+    1076, 1077, 1078, 1079,      // Black Ops
   ] },
-  { label: 'T3 Ships',         groupIds: [963, 1305] },
+  { label: 'T3 Ships', groupIds: [
+    1139, 1140, 1141, 1142,      // Strategic Cruisers
+    1952, 1953, 2021, 2034,      // Tactical Destroyers
+  ] },
   { label: 'Armor Modules',    groupIds: [2527, 2509, 1687, 1669, 1063, 1062, 1061, 1060, 615, 1686, 1685, 1684, 1683] },
   { label: 'Shield Modules',   groupIds: [688, 687, 2246, 1696, 1695, 1694, 1693, 1692, 778, 613, 612, 611, 610] },
   { label: 'Electronic Warfare', groupIds: [2249, 2154, 1937, 1936, 1935, 1426, 1085, 757, 686, 729, 728, 727] },
@@ -42,8 +54,22 @@ const ITEM_CATEGORIES: Category[] = [
   { label: 'Weapon Upgrades',  groupIds: [2740, 2471, 2033, 2032, 801, 708, 707, 706, 648, 647, 646, 645] },
   { label: 'Smartbombs',       groupIds: [383, 382, 381, 380] },
   { label: 'Combat Drones',    groupIds: [911, 839, 838, 837] },
-  { label: 'Mining Equipment', groupIds: [483, 484, 716, 438, 397, 1295, 526, 527] },
-  { label: 'Boosters',         groupIds: [977, 3246, 3247, 3248] },
+  { label: 'Mining Equipment', groupIds: [
+    338, 1039,                   // Mining Lasers (T1 + T2)
+    2151,                        // Ice Mining Lasers
+    1040,                        // Strip Miners
+    1038,                        // Ice Harvesters
+    2795,                        // Gas Cloud Harvesters
+    937, 935,                    // Mining Upgrades (T1 + T2)
+    2806, 2807,                  // Asteroid + Moon Mining Crystals
+  ] },
+  { label: 'Boosters', groupIds: [
+    2491, 2492, 2493, 2494, 2495, 2506, // Slot 01: Blue Pill, Exile, Mindflood, X-Instinct, Antipharmakon, Other
+    2496, 2497, 2498, 2499,             // Slot 02: Drop, Frentix, Sooth Sayer, Antipharmakon
+    2500, 2501,                          // Slot 03: Crash, Antipharmakon
+    2503, 2504, 2505,                    // Slot 11: Hardshell, Overclocker, Pyrolancea
+    2531, 2790, 2791, 2792,              // Slots 14-17
+  ] },
   { label: 'Implants',         groupIds: [622, 621, 620, 619, 618, 2478, 2477, 2476, 2475, 2474] },
   { label: 'Skill Books',      groupIds: [2152, 1824, 1823, 1748, 1747, 1746, 1745, 1323, 1110, 378, 377, 376] },
 ]
