@@ -109,8 +109,12 @@ async function fetchFlips(regionId: number, groupIds: number[], signal: AbortSig
   return flips
 }
 
+export function clearStatsCache() {
+  statsCache.clear()
+}
+
 export function useFlips(regionId: number, groupIds: number[]) {
-  return useQuery({
+  const query = useQuery({
     queryKey: ['flips', regionId, ...groupIds],
     queryFn: ({ signal }) => fetchFlips(regionId, groupIds, signal),
     enabled: groupIds.length > 0,
@@ -118,4 +122,5 @@ export function useFlips(regionId: number, groupIds: number[]) {
     retry: 2,
     retryDelay: (attempt: number) => Math.min(1000 * 2 ** attempt, 10_000),
   })
+  return { data: query.data, isLoading: query.isLoading, isError: query.isError, error: query.error, refetch: query.refetch }
 }

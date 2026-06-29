@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { useFlips } from '@/hooks/useFlips'
+import { useFlips, clearStatsCache } from '@/hooks/useFlips'
 import { formatISK, formatVolume } from '@/lib/utils'
 import type { Hub, Category, SortKey } from '@/types'
 
@@ -134,11 +134,30 @@ export default function App() {
   const [search, setSearch] = useState('')
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [minMargin, setMinMargin] = useState(5)
+  const [maxBuyPrice, setMaxBuyPrice] = useState(0)
+  const [refreshCooldownUntil, setRefreshCooldownUntil] = useState(0)
+  const [, setTick] = useState(0)
 
   const hub = HUBS[hubIndex]
   const category = CATEGORIES[categoryIndex]
 
-  const { data, isLoading, isError, error } = useFlips(hub.regionId, category.groupIds)
+  const { data, isLoading, isError, error, refetch } = useFlips(hub.regionId, category.groupIds)
+
+  const REFRESH_COOLDOWN = 15_000
+  const onCooldown = Date.now() < refreshCooldownUntil
+  const secondsLeft = Math.ceil((refreshCooldownUntil - Date.now()) / 1000)
+
+  useEffect(() => {
+    if (!onCooldown) return
+    const id = setInterval(() => setTick(t => t + 1), 1000)
+    return () => clearInterval(id)
+  }, [onCooldown])
+
+  function handleRefresh() {
+    clearStatsCache()
+    refetch()
+    setRefreshCooldownUntil(Date.now() + REFRESH_COOLDOWN)
+  }
 
   // Apply broker fee + sales tax, then filter to >= 5% post-fee margin
   const adjustedData = useMemo(() => {
@@ -154,7 +173,8 @@ export default function App() {
         return { ...item, profit: adjProfit, margin: adjMargin }
       })
       .filter(item => item.margin >= minMargin)
-  }, [data, brokerFee, salesTax, minMargin])
+      .filter(item => maxBuyPrice === 0 || item.maxBuy <= maxBuyPrice)
+  }, [data, brokerFee, salesTax, minMargin, maxBuyPrice])
 
   const sorted = useMemo(() => {
     const copy = [...adjustedData]
@@ -332,6 +352,21 @@ export default function App() {
 
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+                  Max Buy Price
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  step="1000000"
+                  value={maxBuyPrice}
+                  placeholder="0 = no limit"
+                  onChange={e => setMaxBuyPrice(Math.max(0, Number(e.target.value)))}
+                  className="h-9 w-32 px-3 text-xs bg-secondary border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
                   Per Page
                 </label>
                 <div className="flex gap-1">
@@ -347,6 +382,21 @@ export default function App() {
                     </Button>
                   ))}
                 </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide invisible">
+                  Refresh
+                </label>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 px-3 text-xs"
+                  disabled={onCooldown || isLoading}
+                  onClick={handleRefresh}
+                >
+                  {onCooldown ? `Refresh (${secondsLeft}s)` : 'Refresh'}
+                </Button>
               </div>
 
               {data && !isLoading && (
