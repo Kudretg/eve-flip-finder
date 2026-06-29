@@ -18,56 +18,147 @@ const HUBS: Hub[] = [
 ]
 
 const ITEM_CATEGORIES: Category[] = [
-  { label: 'T1 Ships', groupIds: [
-    1616, 77, 72, 64, 61,        // T1 Frigates (by race)
-    468, 467, 466, 465, 3755,    // T1 Destroyers
-    76, 75, 74, 73,              // T1 Cruisers
-    473, 472, 471, 470,          // T1 Battlecruisers
-    81, 80, 79, 78,              // T1 Battleships
-    1371, 1370, 3537,            // Faction Cruisers
-    1380, 1379, 3538,            // Faction Battleships
+  // ── Ships (by class) ──────────────────────────────────────────────────────
+  { label: 'Frigates', groupIds: [
+    1616, 77, 72, 64, 61,             // T1 by race
+    400, 401, 402, 403,               // Interceptors
+    421, 422, 423, 424,               // Covert Ops + Stealth Bombers
+    433, 434, 435, 436, 2536,         // Assault Frigates
+    1066, 1067, 1068, 1069,           // Electronic Attack Frigates
+    2147, 2148, 2149, 2150,           // Logistics Frigates
   ] },
-  { label: 'T2 Ships', groupIds: [
-    400, 401, 402, 403,          // Interceptors
-    421, 422, 423, 424,          // Covert Ops + Stealth Bombers
-    433, 434, 435, 436, 2536,    // Assault Frigates (incl. Triglavian)
-    1066, 1067, 1068, 1069,      // Electronic Attack Frigates
-    2147, 2148, 2149, 2150,      // Logistics Frigates
-    826, 829, 832, 835,          // Interdictors
-    2126, 2131, 2132, 2133, 2537, 3764, // Command Destroyers (incl. Trig + ORE)
-    449, 450, 451, 452, 2535,    // Heavy Assault Cruisers
-    827, 830, 833, 836,          // Recon Ships
-    1071, 1072, 1073, 1074,      // Heavy Interdiction Cruisers
-    438, 439, 440, 441, 2526,    // Logistics Cruisers (incl. Triglavian)
-    825, 828, 831, 834,          // Command Ships
-    1081, 1082, 1083, 1084, 3744, // Marauders (incl. Triglavian)
-    1076, 1077, 1078, 1079,      // Black Ops
+  { label: 'Destroyers', groupIds: [
+    468, 467, 466, 465, 3755,         // T1 by race
+    826, 829, 832, 835,               // Interdictors
+    2126, 2131, 2132, 2133, 2537, 3764, // Command Destroyers
+    1952, 1953, 2021, 2034,           // Tactical Destroyers (T3)
   ] },
-  { label: 'T3 Ships', groupIds: [
-    1139, 1140, 1141, 1142,      // Strategic Cruisers
-    1952, 1953, 2021, 2034,      // Tactical Destroyers
+  { label: 'Cruisers', groupIds: [
+    76, 75, 74, 73,                   // T1 by race
+    449, 450, 451, 452, 2535,         // Heavy Assault Cruisers
+    827, 830, 833, 836,               // Recon Ships
+    1071, 1072, 1073, 1074,           // Heavy Interdiction Cruisers
+    438, 439, 440, 441, 2526,         // Logistics Cruisers
+    1139, 1140, 1141, 1142,           // Strategic Cruisers (T3)
+    1371, 1370, 3537,                 // Faction Cruisers
   ] },
+  { label: 'Battlecruisers', groupIds: [
+    473, 472, 471, 470,               // T1 by race
+    825, 828, 831, 834,               // Command Ships (T2)
+  ] },
+  { label: 'Battleships', groupIds: [
+    81, 80, 79, 78,                   // T1 by race
+    1081, 1082, 1083, 1084, 3744,     // Marauders
+    1076, 1077, 1078, 1079,           // Black Ops
+    1380, 1379, 3538,                 // Faction Battleships
+  ] },
+  { label: 'Capital Ships', groupIds: [
+    762, 763, 764, 765,               // Dreadnoughts (by race)
+    818, 819, 820, 821, 1392,         // Carriers + Supercarriers + Faction
+    2272, 2273, 2274, 2275,           // Force Auxiliaries (by race)
+    813, 814, 815, 816,               // Titans (by race)
+  ] },
+  { label: 'Industrial & Freighters', groupIds: [
+    494,                              // Mining Barges
+    874,                              // Exhumers
+    629,                              // Transport Ships
+    767, 768, 769, 770,               // Freighters (by race)
+    1090, 1091, 1092, 1093,           // Jump Freighters (by race)
+    1048,                             // Capital Industrial Ships (Rorqual)
+  ] },
+  // ── Turrets & Launchers ───────────────────────────────────────────────────
+  { label: 'Energy Turrets', groupIds: [
+    567, 568, 569,                    // Beam Lasers: S/M/L
+    570, 572, 573,                    // Pulse Lasers: S/M/L
+  ] },
+  { label: 'Hybrid Turrets', groupIds: [
+    561, 562, 563,                    // Blasters: S/M/L
+    564, 565, 566,                    // Railguns: S/M/L
+  ] },
+  { label: 'Projectile Turrets', groupIds: [
+    574, 575, 576,                    // Autocannons: S/M/L
+    577, 578, 579,                    // Artillery: S/M/L
+  ] },
+  { label: 'Precursor Turrets', groupIds: [
+    2433, 2434, 2435,                 // Entropic Disintegrators: S/M/L
+  ] },
+  { label: 'Missile Launchers', groupIds: [
+    639,                              // Rocket Launchers
+    640,                              // Light Missile Launchers
+    641,                              // Rapid Light Missile Launchers
+    642,                              // Heavy Launchers
+    643,                              // Cruise Launchers
+    644,                              // Torpedo Launchers
+    777,                              // XL Launchers
+    1827,                             // Rapid Heavy Missile Launchers
+  ] },
+  { label: 'Weapon Upgrades',  groupIds: [2740, 2471, 2033, 2032, 801, 708, 707, 706, 648, 647, 646, 645] },
+  // ── Ammunition & Charges ─────────────────────────────────────────────────
+  { label: 'Projectile Ammo', groupIds: [
+    113, 112, 109,                    // T1 Standard: S/M/L
+    856, 855, 854,                    // T2 Artillery: S/M/L
+    859, 858, 857,                    // T2 Autocannon: S/M/L
+    989, 988, 987, 1006,              // Faction: S/M/L/XL
+  ] },
+  { label: 'Hybrid Charges', groupIds: [
+    107, 108, 106,                    // T1 Standard: S/M/L
+    862, 861, 860,                    // T2 Blaster: S/M/L
+    865, 864, 863,                    // T2 Railgun: S/M/L
+    993, 992, 991, 1004,              // Faction: S/M/L/XL
+  ] },
+  { label: 'Laser Crystals', groupIds: [
+    102, 103, 105,                    // T1 Standard: S/M/L
+    868, 867, 866,                    // T2 Beam Laser: S/M/L
+    871, 870, 869,                    // T2 Pulse Laser: S/M/L
+    997, 996, 995, 1007,              // Faction: S/M/L/XL
+  ] },
+  { label: 'Missile Ammo', groupIds: [
+    922, 928, 930, 999,               // Rockets: T1/T2 LR/T2 AS/Faction
+    920, 917, 927, 998,               // Light Missiles: T1/T2 HP/T2 HD/Faction
+    924, 919, 926, 1002,              // Heavy Missiles: T1/T2 HP/T2 HD/Faction
+    1003,                             // Faction HAMs
+    921, 918, 925, 1001,              // Cruise Missiles: T1/T2 HP/T2 HD/Faction
+    923, 929, 931, 1000,              // Torpedoes: T1/T2 LR/T2 AS/Faction
+    914,                              // Auto-Targeting Missiles
+  ] },
+  { label: 'Cap Booster Charges', groupIds: [139] },
+  { label: 'Scripts',          groupIds: [1094] },
+  { label: 'Probes',           groupIds: [1199] },
+  // ── Modules ───────────────────────────────────────────────────────────────
   { label: 'Armor Modules',    groupIds: [2527, 2509, 1687, 1669, 1063, 1062, 1061, 1060, 615, 1686, 1685, 1684, 1683] },
   { label: 'Shield Modules',   groupIds: [688, 687, 2246, 1696, 1695, 1694, 1693, 1692, 778, 613, 612, 611, 610] },
   { label: 'Electronic Warfare', groupIds: [2249, 2154, 1937, 1936, 1935, 1426, 1085, 757, 686, 729, 728, 727] },
   { label: 'Propulsion',       groupIds: [2135, 1650, 542, 2783, 1941, 1931, 1088, 1087, 1086, 131] },
-  { label: 'Weapon Upgrades',  groupIds: [2740, 2471, 2033, 2032, 801, 708, 707, 706, 648, 647, 646, 645] },
   { label: 'Smartbombs',       groupIds: [383, 382, 381, 380] },
   { label: 'Combat Drones',    groupIds: [911, 839, 838, 837] },
   { label: 'Mining Equipment', groupIds: [
-    338, 1039,                   // Mining Lasers (T1 + T2)
-    2151,                        // Ice Mining Lasers
-    1040,                        // Strip Miners
-    1038,                        // Ice Harvesters
-    2795,                        // Gas Cloud Harvesters
-    937, 935,                    // Mining Upgrades (T1 + T2)
-    2806, 2807,                  // Asteroid + Moon Mining Crystals
+    338, 1039,                        // Mining Lasers (T1 + T2)
+    2151,                             // Ice Mining Lasers
+    1040,                             // Strip Miners
+    1038,                             // Ice Harvesters
+    2795,                             // Gas Cloud Harvesters
+    937, 935,                         // Mining Upgrades (T1 + T2)
+    2806, 2807,                       // Asteroid + Moon Mining Crystals
   ] },
+  // ── Materials ─────────────────────────────────────────────────────────────
+  { label: 'Minerals',         groupIds: [1857] },
+  { label: 'Gas Cloud Materials', groupIds: [
+    983,                              // Booster Gas Clouds (Cytoserocin etc.)
+    1859,                             // Fullerenes (C50–C540)
+  ] },
+  { label: 'Planetary Commodities', groupIds: [
+    1333,                             // Raw (P0)
+    1334,                             // Processed (P1)
+    1335,                             // Refined (P2)
+    1336,                             // Specialized (P3)
+    1337,                             // Advanced (P4)
+  ] },
+  // ── Other ─────────────────────────────────────────────────────────────────
   { label: 'Boosters', groupIds: [
-    2491, 2492, 2493, 2494, 2495, 2506, // Slot 01: Blue Pill, Exile, Mindflood, X-Instinct, Antipharmakon, Other
-    2496, 2497, 2498, 2499,             // Slot 02: Drop, Frentix, Sooth Sayer, Antipharmakon
-    2500, 2501,                          // Slot 03: Crash, Antipharmakon
-    2503, 2504, 2505,                    // Slot 11: Hardshell, Overclocker, Pyrolancea
+    2491, 2492, 2493, 2494, 2495, 2506, // Slot 01
+    2496, 2497, 2498, 2499,             // Slot 02
+    2500, 2501,                          // Slot 03
+    2503, 2504, 2505,                    // Slot 11
     2531, 2790, 2791, 2792,              // Slots 14-17
   ] },
   { label: 'Implants',         groupIds: [622, 621, 620, 619, 618, 2478, 2477, 2476, 2475, 2474] },
