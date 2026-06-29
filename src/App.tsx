@@ -490,13 +490,6 @@ export default function App() {
                 </Button>
               </div>
 
-              {data && !isLoading && (
-                <div className="ml-auto flex items-end pb-0.5">
-                  <Badge variant="secondary" className="text-xs">
-                    {sorted.length} flip{sorted.length !== 1 ? 's' : ''} found
-                  </Badge>
-                </div>
-              )}
             </div>
           </CardContent>
         </Card>
@@ -556,11 +549,58 @@ export default function App() {
         {/* Results */}
         <Card>
           <CardHeader className="pb-3 pt-4">
-            <CardTitle className="text-base flex items-center gap-2">
-              <span>{hub.label}</span>
-              <span className="text-muted-foreground font-normal">·</span>
-              <span className="text-muted-foreground font-normal">{category.label}</span>
-            </CardTitle>
+            <div className="flex items-center justify-between gap-4">
+              <CardTitle className="text-base flex items-center gap-2">
+                <span>{hub.label}</span>
+                <span className="text-muted-foreground font-normal">·</span>
+                <span className="text-muted-foreground font-normal">{category.label}</span>
+              </CardTitle>
+              {data && !isLoading && (
+                <div className="flex items-center gap-1.5">
+                  {totalPages > 1 && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="px-2.5 text-xs"
+                        disabled={page === 1}
+                        onClick={() => setPage(p => p - 1)}
+                      >
+                        ‹
+                      </Button>
+                      {pageButtons.map((btn, i) =>
+                        btn === '…' ? (
+                          <span key={`ellipsis-${i}`} className="text-muted-foreground text-xs px-1">…</span>
+                        ) : (
+                          <Button
+                            key={btn}
+                            size="sm"
+                            variant={btn === page ? 'default' : 'outline'}
+                            className="px-2.5 text-xs min-w-8"
+                            onClick={() => setPage(btn)}
+                          >
+                            {btn}
+                          </Button>
+                        )
+                      )}
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="px-2.5 text-xs"
+                        disabled={page === totalPages}
+                        onClick={() => setPage(p => p + 1)}
+                      >
+                        ›
+                      </Button>
+                      <span className="text-muted-foreground text-xs mx-1">·</span>
+                    </>
+                  )}
+                  <Badge variant="secondary" className="text-xs">
+                    {sorted.length} flip{sorted.length !== 1 ? 's' : ''} found
+                  </Badge>
+                </div>
+              )}
+            </div>
           </CardHeader>
           <CardContent className="p-0">
             {isError && (
@@ -643,43 +683,6 @@ export default function App() {
           </CardContent>
         </Card>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-1 mt-4">
-            <Button
-              size="sm"
-              variant="outline"
-              className="px-2.5 text-xs"
-              disabled={page === 1}
-              onClick={() => setPage(p => p - 1)}
-            >
-              ‹
-            </Button>
-            {pageButtons.map((btn, i) =>
-              btn === '…' ? (
-                <span key={`ellipsis-${i}`} className="text-muted-foreground text-xs px-1">…</span>
-              ) : (
-                <Button
-                  key={btn}
-                  size="sm"
-                  variant={btn === page ? 'default' : 'outline'}
-                  className="px-2.5 text-xs min-w-8"
-                  onClick={() => setPage(btn)}
-                >
-                  {btn}
-                </Button>
-              )
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              className="px-2.5 text-xs"
-              disabled={page === totalPages}
-              onClick={() => setPage(p => p + 1)}
-            >
-              ›
-            </Button>
-          </div>
-        )}
 
         <p className="text-xs text-muted-foreground text-center mt-4">
           Data from evetycoon.com · Refreshes every 60s · Profits shown after broker &amp; tax fees
