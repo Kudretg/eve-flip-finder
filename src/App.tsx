@@ -573,13 +573,24 @@ export default function App() {
                         {item.typeName}
                       </a>
                       <p className="text-[10px] text-green font-mono">+{formatISK(item.profit)} ISK</p>
-                      <div className="flex gap-2 mt-0.5">
-                        <span className="text-[10px] font-mono" style={{ color: item.buyColor }}>
-                          ↑{formatVolume(item.buyVolume)}
-                        </span>
-                        <span className="text-[10px] font-mono" style={{ color: item.sellColor }}>
-                          ↓{formatVolume(item.sellVolume)}
-                        </span>
+                      <div className="flex items-center justify-between mt-0.5">
+                        <div className="flex gap-2">
+                          <span className="text-[10px] font-mono" style={{ color: item.buyColor }}>
+                            ↑{formatVolume(item.buyVolume)}
+                          </span>
+                          <span className="text-[10px] font-mono" style={{ color: item.sellColor }}>
+                            ↓{formatVolume(item.sellVolume)}
+                          </span>
+                        </div>
+                        {isElectron && (
+                          <button
+                            title="Open market window in EVE"
+                            onClick={() => window.electronAPI?.openMarketWindow(item.typeId)}
+                            className="text-[10px] text-muted-foreground hover:text-primary transition-colors"
+                          >
+                            ⧉
+                          </button>
+                        )}
                       </div>
                     </CardContent>
                   </Card>
