@@ -322,7 +322,7 @@ export default function App() {
     <div className="min-h-screen bg-background">
       <div className={`mx-auto px-4 py-8 ${isElectron ? 'flex gap-6 max-w-[1600px]' : 'max-w-7xl'}`}>
       {isElectron && (
-        <div className="w-80 shrink-0">
+        <div className="w-[380px] shrink-0">
           <TraderPanel />
         </div>
       )}
