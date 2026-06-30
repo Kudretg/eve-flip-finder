@@ -1,0 +1,14 @@
+directories:
+  output: release
+  buildResources: build
+appId: com.eveflipper.app
+productName: EVE Flip Finder
+files:
+  - filter:
+      - electron-dist/**/*
+      - dist/**/*
+      - node_modules/**/*
+      - package.json
+win:
+  target: nsis
+electronVersion: 42.5.1
