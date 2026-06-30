@@ -1,6 +1,10 @@
 const BASE = '/api/v1'
+const isElectron = typeof window !== 'undefined' && !!window.electronAPI
 
 async function apiFetch<T>(path: string, signal?: AbortSignal): Promise<T> {
+  if (isElectron && window.electronAPI) {
+    return window.electronAPI.apiFetch(path) as Promise<T>
+  }
   const res = await fetch(`${BASE}${path}`, signal ? { signal } : undefined)
   if (!res.ok) throw new Error(`API ${res.status}: ${path}`)
   return res.json() as Promise<T>

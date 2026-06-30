@@ -7,6 +7,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { useFlips, clearStatsCache } from '@/hooks/useFlips'
 import { formatISK, formatVolume } from '@/lib/utils'
+import { TraderPanel } from '@/components/TraderPanel'
+import { isElectron } from '@/hooks/useMonitor'
 import type { Hub, Category, SortKey } from '@/types'
 
 const HUBS: Hub[] = [
@@ -318,7 +320,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-4 py-8">
+      <div className={`mx-auto px-4 py-8 ${isElectron ? 'flex gap-6 max-w-[1600px]' : 'max-w-7xl'}`}>
+      {isElectron && (
+        <div className="w-80 shrink-0">
+          <TraderPanel />
+        </div>
+      )}
+      <div className="flex-1 min-w-0">
         {/* Header */}
         <div className="mb-8 flex items-start justify-between">
           <div>
@@ -655,6 +663,7 @@ export default function App() {
                     <TableHead className="text-right">Margin</TableHead>
                     <TableHead className="text-right" title="Daily units bought (how fast your sell order fills)">Buy Vol</TableHead>
                     <TableHead className="text-right" title="Daily units sold (how fast your buy order fills)">Sell Vol</TableHead>
+                    {isElectron && <TableHead className="w-8" />}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -708,6 +717,17 @@ export default function App() {
                             {formatVolume(item.sellVolume)}
                           </span>
                         </TableCell>
+                        {isElectron && (
+                          <TableCell className="text-right">
+                            <button
+                              title="Open market window in EVE"
+                              onClick={() => window.electronAPI?.openMarketWindow(item.typeId)}
+                              className="text-[11px] text-muted-foreground hover:text-primary transition-colors"
+                            >
+                              ⧉
+                            </button>
+                          </TableCell>
+                        )}
                       </TableRow>
                     ))
                   )}
@@ -721,6 +741,7 @@ export default function App() {
         <p className="text-xs text-muted-foreground text-center mt-4">
           Data from evetycoon.com · Refreshes every 60s · Profits shown after broker &amp; tax fees
         </p>
+      </div>
       </div>
     </div>
   )
