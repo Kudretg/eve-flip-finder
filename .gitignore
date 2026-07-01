@@ -13,6 +13,7 @@ dist-ssr
 *.local
 electron-dist
 release/win-unpacked
+.sde-cache
 
 # Editor directories and files
 .vscode/*

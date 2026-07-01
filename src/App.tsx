@@ -1,15 +1,17 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { useFlips, clearStatsCache } from '@/hooks/useFlips'
+import { useFlips, clearStatsCache, getCachedStats, buildFlipItem } from '@/hooks/useFlips'
+import { useItemCatalog, searchCatalog } from '@/data/items'
+import type { Item } from '@/data/items'
 import { formatISK, formatVolume } from '@/lib/utils'
 import { TraderPanel } from '@/components/TraderPanel'
 import { isElectron } from '@/hooks/useMonitor'
-import type { Hub, Category, SortKey } from '@/types'
+import type { Hub, Category, SortKey, FlipItem } from '@/types'
 
 const HUBS: Hub[] = [
   { label: 'Jita',    systemId: 30000142, regionId: 10000002 },
@@ -232,6 +234,8 @@ export default function App() {
   const [maxBuyPrice, setMaxBuyPrice] = useState(0)
   const [refreshCooldownUntil, setRefreshCooldownUntil] = useState(0)
   const [, setTick] = useState(0)
+  const [manualFlips, setManualFlips] = useState<Map<number, FlipItem | 'loading' | 'error'>>(new Map())
+  const manualItemsRef = useRef<Map<number, Item>>(new Map())
 
   const hub = HUBS[hubIndex]
 
@@ -243,6 +247,7 @@ export default function App() {
   )
 
   const { data, isLoading, isError, error, refetch } = useFlips(hub.regionId, activeGroupIds)
+  const { data: catalog } = useItemCatalog()
 
   const REFRESH_COOLDOWN = 15_000
   const onCooldown = Date.now() < refreshCooldownUntil
@@ -260,12 +265,42 @@ export default function App() {
     setRefreshCooldownUntil(Date.now() + REFRESH_COOLDOWN)
   }
 
-  // Apply broker fee + sales tax, then filter to >= 5% post-fee margin
+  async function loadManualStats(item: Item, regionId: number) {
+    try {
+      const stats = await getCachedStats(regionId, item.typeId)
+      const flip = buildFlipItem({ typeID: item.typeId, typeName: item.name }, stats)
+      setManualFlips(prev => new Map(prev).set(item.typeId, flip ? { ...flip, isManual: true } : 'error'))
+    } catch {
+      setManualFlips(prev => new Map(prev).set(item.typeId, 'error'))
+    }
+  }
+
+  function addCatalogItem(item: Item) {
+    if (manualItemsRef.current.has(item.typeId)) return
+    manualItemsRef.current.set(item.typeId, item)
+    setManualFlips(prev => new Map(prev).set(item.typeId, 'loading'))
+    loadManualStats(item, hub.regionId)
+  }
+
+  // Region changed — re-fetch every manually-added item against the new hub.
+  useEffect(() => {
+    for (const item of manualItemsRef.current.values()) {
+      setManualFlips(prev => new Map(prev).set(item.typeId, 'loading'))
+      loadManualStats(item, hub.regionId)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hub.regionId])
+
+  // Apply broker fee + sales tax, then filter to >= 5% post-fee margin.
+  // Manually-added (searched) items skip the threshold filters — they were
+  // deliberately picked, so they shouldn't vanish immediately after adding.
   const adjustedData = useMemo(() => {
-    if (!data) return []
     const bf = brokerFee / 100
     const st = salesTax / 100
-    return data
+    const scannedIds = new Set((data ?? []).map(item => item.typeId))
+    const manualResolved = Array.from(manualFlips.values())
+      .filter((f): f is FlipItem => typeof f === 'object' && !scannedIds.has(f.typeId))
+    return [...(data ?? []), ...manualResolved]
       .map(item => {
         // Buy order cost: maxBuy + broker fee on buy side
         // Sell order revenue: minSell - broker fee on sell side - sales tax
@@ -273,10 +308,10 @@ export default function App() {
         const adjMargin = (adjProfit / item.minSell) * 100
         return { ...item, profit: adjProfit, margin: adjMargin }
       })
-      .filter(item => item.margin >= minMargin)
-      .filter(item => maxBuyPrice === 0 || item.maxBuy <= maxBuyPrice)
-      .filter(item => minBuyPrice === 0 || item.maxBuy >= minBuyPrice)
-  }, [data, brokerFee, salesTax, minMargin, maxBuyPrice, minBuyPrice])
+      .filter(item => item.isManual || item.margin >= minMargin)
+      .filter(item => item.isManual || maxBuyPrice === 0 || item.maxBuy <= maxBuyPrice)
+      .filter(item => item.isManual || minBuyPrice === 0 || item.maxBuy >= minBuyPrice)
+  }, [data, manualFlips, brokerFee, salesTax, minMargin, maxBuyPrice, minBuyPrice])
 
   const sorted = useMemo(() => {
     const copy = [...adjustedData]
@@ -302,14 +337,17 @@ export default function App() {
     return [...adjustedData].sort((a, b) => score(b) - score(a)).slice(0, 10)
   }, [adjustedData])
 
-  const suggestions = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return []
-    const names = adjustedData.map(item => item.typeName)
-    const startsWith = names.filter(n => n.toLowerCase().startsWith(q))
-    const contains   = names.filter(n => !n.toLowerCase().startsWith(q) && n.toLowerCase().includes(q))
-    return [...startsWith, ...contains].slice(0, 10)
-  }, [adjustedData, search])
+  const suggestions = useMemo(
+    () => searchCatalog(catalog ?? [], search, 50),
+    [catalog, search]
+  )
+
+  function selectSuggestion(item: Item) {
+    setSearch(item.name)
+    setShowSuggestions(false)
+    const alreadyPresent = (data ?? []).some(d => d.typeId === item.typeId) || manualItemsRef.current.has(item.typeId)
+    if (!alreadyPresent) addCatalogItem(item)
+  }
 
   const totalPages = pageSize === null ? 1 : Math.ceil(sorted.length / pageSize)
   const paginated = pageSize === null ? sorted : sorted.slice((page - 1) * pageSize, page * pageSize)
@@ -407,18 +445,23 @@ export default function App() {
                   onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
                   className="h-9 px-3 text-xs bg-secondary border border-border rounded-md text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring"
                 />
-                {showSuggestions && suggestions.length > 0 && (
-                  <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-card border border-border rounded-md shadow-lg overflow-hidden">
-                    {suggestions.map(name => (
+                {showSuggestions && suggestions.results.length > 0 && (
+                  <div className="absolute top-full left-0 right-0 mt-1 z-50 bg-card border border-border rounded-md shadow-lg overflow-hidden max-h-80 overflow-y-auto">
+                    {suggestions.results.map(item => (
                       <button
-                        key={name}
+                        key={item.typeId}
                         type="button"
-                        onMouseDown={() => { setSearch(name); setShowSuggestions(false) }}
+                        onMouseDown={() => selectSuggestion(item)}
                         className="w-full text-left px-3 py-1.5 text-xs text-foreground hover:bg-secondary transition-colors"
                       >
-                        {name}
+                        {item.name}
                       </button>
                     ))}
+                    {suggestions.hasMore && (
+                      <div className="px-3 py-1.5 text-[10px] text-muted-foreground border-t border-border">
+                        Keep typing to narrow results…
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -742,6 +785,17 @@ export default function App() {
                       </TableRow>
                     ))
                   )}
+                  {Array.from(manualFlips.entries())
+                    .filter(([, v]) => v === 'loading' || v === 'error')
+                    .map(([typeId, v]) => (
+                      <TableRow key={`manual-${typeId}`}>
+                        <TableCell colSpan={isElectron ? 8 : 7} className="text-xs text-muted-foreground py-2">
+                          {v === 'loading'
+                            ? `Loading ${manualItemsRef.current.get(typeId)?.name ?? typeId}…`
+                            : `Failed to load market data for ${manualItemsRef.current.get(typeId)?.name ?? typeId}`}
+                        </TableCell>
+                      </TableRow>
+                    ))}
                 </TableBody>
               </Table>
             )}

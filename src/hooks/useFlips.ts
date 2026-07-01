@@ -20,7 +20,7 @@ async function getCachedGroupTypes(groupId: number): Promise<MarketType[]> {
   return data
 }
 
-async function getCachedStats(regionId: number, typeId: number, signal: AbortSignal): Promise<MarketStats> {
+export async function getCachedStats(regionId: number, typeId: number, signal?: AbortSignal): Promise<MarketStats> {
   const key = `${regionId}:${typeId}`
   const entry = statsCache.get(key)
   if (entry && Date.now() - entry.ts < STATS_TTL) return entry.data
@@ -66,6 +66,36 @@ function volumeColor(vol: number, otherVol: number): string {
   return `hsl(${hue} ${sat}% ${light}%)`
 }
 
+/** Shared by the bulk scan and the on-demand single-item add — raw (pre-fee)
+ *  profit/margin/liquidity/color. Returns null only for degenerate/non-finite
+ *  numbers (no real market on either side). Does NOT apply business-rule
+ *  exclusions (profit<=0, low liquidity) — callers decide whether those matter. */
+export function buildFlipItem(type: { typeID: number; typeName: string }, stats: MarketStats): FlipItem | null {
+  const { minSell, maxBuy, sellVolume, buyVolume } = stats
+  if (!Number.isFinite(minSell) || minSell <= 0) return null
+  if (!Number.isFinite(maxBuy) || maxBuy <= 0) return null
+  const profit = minSell - maxBuy
+  if (!Number.isFinite(profit)) return null
+  const margin = (profit / minSell) * 100
+  if (!Number.isFinite(margin)) return null
+  const bv = Number.isFinite(buyVolume) && buyVolume > 0 ? buyVolume : 0
+  const sv = Number.isFinite(sellVolume) && sellVolume > 0 ? sellVolume : 0
+  const liquidityScore = Math.min(bv, sv)
+  return {
+    typeId: type.typeID,
+    typeName: type.typeName,
+    maxBuy,
+    minSell,
+    profit,
+    margin,
+    buyVolume: bv,
+    sellVolume: sv,
+    liquidityScore,
+    buyColor: volumeColor(bv, sv),
+    sellColor: volumeColor(sv, bv),
+  }
+}
+
 async function fetchFlips(regionId: number, groupIds: number[], signal: AbortSignal): Promise<FlipItem[]> {
   const typeArrays = await Promise.all(groupIds.map(gid => getCachedGroupTypes(gid)))
   const types = typeArrays.flat().slice(0, MAX_TYPES)
@@ -81,30 +111,11 @@ async function fetchFlips(regionId: number, groupIds: number[], signal: AbortSig
     if (result.status !== 'fulfilled') continue
     const { type, stats } = result.value
     if (!stats) continue
-    const { minSell, maxBuy, sellVolume, buyVolume } = stats
-    if (!Number.isFinite(minSell) || minSell <= 0) continue
-    if (!Number.isFinite(maxBuy) || maxBuy <= 0) continue
-    const profit = minSell - maxBuy
-    if (!Number.isFinite(profit) || profit <= 0) continue
-    const margin = (profit / minSell) * 100
-    if (!Number.isFinite(margin)) continue
-    const bv = Number.isFinite(buyVolume) && buyVolume > 0 ? buyVolume : 0
-    const sv = Number.isFinite(sellVolume) && sellVolume > 0 ? sellVolume : 0
-    const liquidityScore = Math.min(bv, sv)
-    if (liquidityScore < MIN_LIQUIDITY) continue
-    flips.push({
-      typeId: type.typeID,
-      typeName: type.typeName,
-      maxBuy: stats.maxBuy,
-      minSell: stats.minSell,
-      profit,
-      margin,
-      buyVolume: bv,
-      sellVolume: sv,
-      liquidityScore,
-      buyColor: volumeColor(bv, sv),
-      sellColor: volumeColor(sv, bv),
-    })
+    const flip = buildFlipItem(type, stats)
+    if (!flip) continue
+    if (flip.profit <= 0) continue
+    if (flip.liquidityScore < MIN_LIQUIDITY) continue
+    flips.push(flip)
   }
   return flips
 }

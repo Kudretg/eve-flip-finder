@@ -10,6 +10,7 @@ export interface FlipItem {
   liquidityScore: number  // min(buyVolume, sellVolume) — the bottleneck leg of the flip
   buyColor: string
   sellColor: string
+  isManual?: boolean  // added via catalog search, not the bulk scan — skips margin/price threshold filters
 }
 
 export type SortKey = 'margin' | 'profit' | 'liquidityDesc' | 'liquidityAsc' | 'buyVolume' | 'sellVolume'
