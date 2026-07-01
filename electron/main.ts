@@ -1,5 +1,5 @@
 import { app, BrowserWindow, ipcMain, clipboard } from 'electron'
-import { autoUpdater } from 'electron-updater'
+import electronUpdater from 'electron-updater'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { startOAuthFlow, logout, getAuthStatus } from './auth.js'
@@ -7,6 +7,8 @@ import { getStore, DEFAULT_MONITOR_CONFIG } from './store.js'
 import { startMonitor, stopMonitor, getStatus } from './monitor.js'
 import { openMarketWindow } from './esi.js'
 import type { MonitorConfig } from './store.js'
+
+const { autoUpdater } = electronUpdater
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const isDev = !app.isPackaged
