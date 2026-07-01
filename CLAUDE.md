@@ -14,6 +14,9 @@ npm run lint           # oxlint (Rust-based, fast)
 npm run electron:dev   # compiles electron/ + starts Vite + launches Electron window
 npm run electron:compile  # tsc -p tsconfig.electron.json → electron-dist/
 npm run electron:build    # full production build → release/EVE Flip Finder Setup x.x.x.exe
+
+# Item catalog (regenerate after a game patch)
+npm run sync:items      # rebuilds public/items.generated.json from CCP's SDE
 ```
 
 No test suite is configured. TypeScript strict mode is the primary correctness check.
@@ -51,6 +54,10 @@ Required OAuth scopes:
 
 If a user linked before `esi-ui.open_window.v1` was added, they must Unlink and re-link to grant the new scope.
 
+### Auto-update (`electron-updater`)
+
+`electron/main.ts` calls `autoUpdater.checkForUpdatesAndNotify()` once on `app.whenReady()`, guarded by `!isDev` (no-op in `electron:dev`). The update feed is GitHub Releases, configured via `build.publish` in `package.json` (`owner`/`repo`, no token needed for a public repo's check+download) — electron-builder bakes this into `resources/app-update.yml` at build time. To ship an update: bump `version` in `package.json`, `npm run electron:build`, then `gh release create vX.Y.Z release/*.exe release/*.exe.blockmap` (tag must match the `version` field). No custom update UI is wired — `checkForUpdatesAndNotify` shows a native OS notification when a downloaded update is ready; the user still has to restart the app to apply it.
+
 ### Monitor loop (`electron/monitor.ts`)
 
 Polls every 5 minutes (matches ESI order cache TTL). On each iteration:
@@ -72,12 +79,27 @@ const isElectron = typeof window !== 'undefined' && !!window.electronAPI
 
 ### Web data pipeline (`src/hooks/useFlips.ts`)
 
-1. `Promise.all` → `getCachedGroupTypes(groupId)` per group → flat type list (cap `MAX_TYPES = 500`)
+1. `Promise.all` → `getCachedGroupTypes(groupId)` per group → flat type list (cap `MAX_TYPES = 500` combined across all selected groups — types beyond the cap are silently dropped)
 2. `runConcurrent(tasks, 20, signal)` — 20-worker pool fetches market stats (prevents 500 simultaneous requests)
-3. Per-type stats cached in `statsCache` (Map keyed `regionId:typeId`, TTL 60s)
+3. Per-type stats cached in `statsCache` (Map keyed `regionId:typeId`, TTL 60s), exposed via exported `getCachedStats(regionId, typeId, signal?)`
 4. TanStack Query v5 `signal` threaded through to every `fetch()` for cancellation on hub/category switch
 
+Raw (pre-fee) profit/margin/liquidity/color computation lives in exported `buildFlipItem(type, stats)` — a pure function shared by the bulk scan and the on-demand catalog-search add (see below). It returns `null` only for degenerate/non-finite numbers; business-rule exclusions (profit ≤ 0, low liquidity) are applied separately by the bulk scan's loop only, so manually-added items aren't subject to them.
+
 In Electron, the same hook works but `apiFetch` routes through IPC instead of direct HTTP.
+
+### Item catalog + full-catalog search
+
+`public/items.generated.json` is a generated, committed-to-git snapshot of every marketable EVE item (~19k), built by `scripts/sync-items.ts` from CCP's Static Data Export. Three-tier source chain (first success wins, recorded in `public/items.generated.meta.json`'s `source` field):
+1. `sde-enhanced` — `https://sde.riftforeve.online/assets/eve-online-static-data-latest-enhanced-jsonl.zip` (Nohus's unofficial mirror; only source with `repackagedVolume` → `Item.packagedVolume`)
+2. `sde-ccp` — CCP's official jsonl export (same shape, no `repackagedVolume`)
+3. `fuzzwork` — `invTypes.csv` (different shape: flat `typeName`, `published` is `"1"`/`"0"` not boolean — has its own mapper, not shared with the jsonl mapper)
+
+Filter for "marketable": `published === true && marketGroupID != null`. Conditional GET against each tier's `-latest-` URL follows the redirect to a build-numbered file and reads `ETag`/`Last-Modified` off the *final* response (the redirect itself isn't versioned). Cache lives in `.sde-cache/` (gitignored).
+
+`src/data/items.ts` is the single source of truth for the `Item` type (imported by the sync script too) and exposes `useItemCatalog()` (TanStack Query, `staleTime: Infinity`, fetches the JSON once) and `searchCatalog(items, query, limit)` — case-insensitive, word-order-independent token matching, ranked prefix > word-start > substring.
+
+The search bar in `App.tsx` uses `searchCatalog` against the full catalog for its autocomplete dropdown (not just currently-scanned items). Selecting an item not already in the scanned set triggers an on-demand fetch via `getCachedStats`/`buildFlipItem` for the **currently selected hub**, shown as a loading row (`manualFlips` state) until it resolves, then merged into `adjustedData` before the fee-adjustment step. Manually-added items (`FlipItem.isManual`) skip the minMargin/min-buy/max-buy threshold filters — they were deliberately searched for, so they don't disappear right after being added — but still get the same fee-adjusted math and rendering as scanned rows. Switching hubs re-fetches all manually-added items against the new region.
 
 ## Fee adjustment formula
 
@@ -108,12 +130,15 @@ Only **leaf** groups work with evetycoon — groups where ESI returns non-empty 
 GET https://esi.evetech.net/latest/markets/groups/{id}/  →  check types[] is non-empty
 ```
 
+`ITEM_CATEGORIES`' `groupIds` are the same ID space as the item catalog's `marketGroupID` (e.g. Rifter's `marketGroupID` is `64`, matching the `64` already listed under `Frigates`) — the catalog isn't a separate categorization scheme.
+
 ## Key constraints
 
 - `sandbox: false` in `BrowserWindow.webPreferences` is required for ESM preload scripts in Electron 28+. Do not remove it.
 - `electron-store` v11 is ESM-only. Import as `import Store from 'electron-store'`.
-- `electron-dist/` and `release/win-unpacked/` are gitignored (compiled output). The installer `.exe` in `release/` is tracked on the `testing` branch.
+- `electron-dist/` and all of `release/` (including the built installer) are gitignored — the `.exe` is **not** committed. It's distributed via GitHub Releases instead (`gh release create` with the exe + blockmap as assets), which is also how `electron-updater` finds updates (see below).
 - The `testing` branch holds Electron work. `main` is the stable web-only version.
+- `npm run electron:build` / `electron-builder` can fail with `EPERM: ... rename '...win-unpacked.tmp' -> '...win-unpacked'`. This is usually a stray leftover `vite`/`npm run dev` process still holding a handle on the project directory, not an antivirus lock — kill orphaned `node.exe`/`vite` processes first (`tasklist`/`wmic process where "name='node.exe'"` to find them) before assuming it's Defender.
 
 ## Styling
 

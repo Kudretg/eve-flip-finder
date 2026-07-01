@@ -12,7 +12,7 @@ dist
 dist-ssr
 *.local
 electron-dist
-release/win-unpacked
+release
 .sde-cache
 
 # Editor directories and files

@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, clipboard } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { startOAuthFlow, logout, getAuthStatus } from './auth.js'
@@ -42,6 +43,9 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+  if (!isDev) {
+    autoUpdater.checkForUpdatesAndNotify().catch(console.error)
+  }
 }).catch(console.error)
 
 app.on('window-all-closed', () => {
