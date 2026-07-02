@@ -33,6 +33,10 @@ function iskAtRisk(o: ActiveOrderUI): number {
   return o.price * o.volumeRemain
 }
 
+// How long an acted-on order stays hidden from the action lists. Aligned to the
+// monitor poll + ESI order cache TTL, so fresh data lands by the time it expires.
+const SNOOZE_MS = 5 * 60_000
+
 function OrderCard({ order, onCopy, onOpenEve }: {
   order: ActiveOrderUI
   onCopy: (price: number) => void
@@ -77,10 +81,10 @@ function OrderCard({ order, onCopy, onOpenEve }: {
   )
 }
 
-function CancelCard({ order, health, onOpenEve }: {
+function CancelCard({ order, health, onCancelAction }: {
   order: ActiveOrderUI
   health: BuyOrderHealth
-  onOpenEve: (typeId: number) => void
+  onCancelAction: (order: ActiveOrderUI) => void
 }) {
   return (
     <div className="p-2.5 rounded text-[11px] border border-destructive/40 bg-destructive/5">
@@ -104,7 +108,7 @@ function CancelCard({ order, health, onOpenEve }: {
         ))}
       </ul>
       <button
-        onClick={() => onOpenEve(order.typeId)}
+        onClick={() => onCancelAction(order)}
         className="text-[10px] text-muted-foreground hover:text-primary transition-colors"
       >
         ⧉ Open in EVE to cancel
@@ -154,6 +158,35 @@ function RepriceCard({ order, config, justRepriced, emphasized, onReprice }: {
   )
 }
 
+function SnoozedPanel({ items, open, onToggle, onUndo }: {
+  items: { order: ActiveOrderUI; remainingMs: number }[]
+  open: boolean
+  onToggle: () => void
+  onUndo: (orderId: number) => void
+}) {
+  if (items.length === 0) return null
+  return (
+    <div>
+      <button onClick={onToggle} className="text-[10px] text-muted-foreground hover:text-foreground transition-colors">
+        {items.length} snoozed {open ? '▴' : '▾'}
+      </button>
+      {open && (
+        <div className="mt-1 space-y-1 p-2 bg-secondary/30 rounded">
+          {items.map(({ order, remainingMs }) => (
+            <div key={order.orderId} className="flex items-center justify-between gap-2 text-[10px]">
+              <span className="truncate text-muted-foreground">{order.typeName}</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <span className="font-mono text-muted-foreground">{Math.ceil(remainingMs / 60_000)}m</span>
+                <button onClick={() => onUndo(order.orderId)} className="text-primary hover:underline">Undo</button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function TraderPanel() {
   const { status, authStatus, clientId, loginError, isLoggingIn, login, logout, startMonitor, stopMonitor, copyPrice, saveClientId } = useMonitor()
   const [inputClientId, setInputClientId] = useState('')
@@ -168,6 +201,11 @@ export function TraderPanel() {
   const [repricedId, setRepricedId] = useState<number | null>(null)
   const [preArm, setPreArm] = useState(false)
   const [capturingHotkey, setCapturingHotkey] = useState(false)
+  // Acted-on orders are hidden from the action lists for SNOOZE_MS; each entry
+  // records the price at action time so we can early-clear once the Modify lands.
+  const [snoozed, setSnoozed] = useState<Map<number, { expiry: number; priceAtAction: number }>>(new Map())
+  const [showSnoozed, setShowSnoozed] = useState(false)
+  const [snoozeTick, setSnoozeTick] = useState(0)
 
   useEffect(() => {
     if (clientId) setInputClientId(clientId)
@@ -228,13 +266,61 @@ export function TraderPanel() {
   const sellOrders = status.activeOrders.filter(o => !o.isBuyOrder)
   const recentAlerts = status.recentAlerts.filter(a => Date.now() - a.timestamp < 3_600_000)
   const undercutCount = status.activeOrders.filter(o => o.isUndercut).length
+
+  // Snooze bookkeeping. An entry is "active" (still hiding its order) only while
+  // the order is present, unexpired, and its price is unchanged — a price change
+  // means the in-client Modify landed, so we early-clear and let the live state decide.
+  const activeOrderMap = useMemo(
+    () => new Map(status.activeOrders.map(o => [o.orderId, o])),
+    [status.activeOrders]
+  )
+  // Recomputed each render (cheap); the 20s tick + monitor updates drive re-renders.
+  const snoozedList: { order: ActiveOrderUI; remainingMs: number }[] = []
+  {
+    const now = Date.now()
+    for (const [orderId, { expiry, priceAtAction }] of snoozed) {
+      const order = activeOrderMap.get(orderId)
+      if (!order || now >= expiry || order.price !== priceAtAction) continue
+      snoozedList.push({ order, remainingMs: expiry - now })
+    }
+  }
+  const snoozedIds = new Set(snoozedList.map(s => s.order.orderId))
+
+  const snooze = useCallback((order: ActiveOrderUI) => {
+    setSnoozed(m => new Map(m).set(order.orderId, { expiry: Date.now() + SNOOZE_MS, priceAtAction: order.price }))
+  }, [])
+  const unsnooze = useCallback((orderId: number) => {
+    setSnoozed(m => { const n = new Map(m); n.delete(orderId); return n })
+  }, [])
+
+  // Tick so expiry/early-clear surface without a monitor event.
+  useEffect(() => {
+    const id = setInterval(() => setSnoozeTick(t => t + 1), 20_000)
+    return () => clearInterval(id)
+  }, [])
+
+  // Early-clear: prune expired / gone / price-changed entries from the map.
+  useEffect(() => {
+    setSnoozed(prev => {
+      const now = Date.now()
+      let changed = false
+      const next = new Map(prev)
+      for (const [orderId, { expiry, priceAtAction }] of prev) {
+        const order = activeOrderMap.get(orderId)
+        if (!order || now >= expiry || order.price !== priceAtAction) { next.delete(orderId); changed = true }
+      }
+      return changed ? next : prev
+    })
+  }, [activeOrderMap, snoozeTick])
+
   const cancelCandidates = getCancelCandidates(status.activeOrders, status.config)
+    .filter(({ order }) => !snoozedIds.has(order.orderId))
 
   // One sorted undercut list feeds the list, stepper, and hotkey.
   const undercutOrders = useMemo(
     () => sortUndercutOrders(status.activeOrders, status.config),
     [status.activeOrders, status.config]
-  )
+  ).filter(o => !snoozedIds.has(o.orderId))
 
   // Keep refs current so the once-registered hotkey handler reads fresh state.
   const undercutRef = useRef(undercutOrders)
@@ -254,14 +340,21 @@ export function TraderPanel() {
     if (!order || order.suggestedPrice === null) return { ok: false }
     await copyPrice(order.suggestedPrice)
     const res = await handleOpenEve(order.typeId)
+    // On success the order is snoozed out of the list; that removal slides the
+    // next order into this index, so there's no separate advance (that would
+    // skip one). On failure it stays put so the user can retry.
+    if (res.ok) snooze(order)
     setRepricedId(order.orderId)
     window.setTimeout(() => setRepricedId(id => (id === order.orderId ? null : id)), 2500)
-    setRepriceIdx(i => {
-      const total = undercutRef.current.length
-      return total <= 1 ? 0 : (i + 1) % total
-    })
     return res
-  }, [copyPrice, handleOpenEve])
+  }, [copyPrice, handleOpenEve, snooze])
+
+  // Cancel action: open the market window to cancel in-client, then snooze it
+  // out of the list (early-clears once the order actually disappears).
+  const handleCancelAction = useCallback(async (order: ActiveOrderUI) => {
+    const res = await handleOpenEve(order.typeId)
+    if (res.ok) snooze(order)
+  }, [handleOpenEve, snooze])
 
   // Clamp / reset stepper when the undercut list changes.
   useEffect(() => {
@@ -563,13 +656,14 @@ export function TraderPanel() {
             {/* Cancel tab */}
             {tab === 'cancel' && (
               <div className="space-y-1.5 max-h-[420px] overflow-y-auto pr-0.5">
+                <SnoozedPanel items={snoozedList} open={showSnoozed} onToggle={() => setShowSnoozed(s => !s)} onUndo={unsnooze} />
                 {cancelCandidates.length === 0 ? (
                   <p className="text-[10px] text-muted-foreground py-2">
                     {status.running ? 'No weak buy orders — your book looks healthy.' : 'Start monitor to load orders.'}
                   </p>
                 ) : (
                   cancelCandidates.map(({ order, health }) => (
-                    <CancelCard key={order.orderId} order={order} health={health} onOpenEve={handleOpenEve} />
+                    <CancelCard key={order.orderId} order={order} health={health} onCancelAction={handleCancelAction} />
                   ))
                 )}
               </div>
@@ -578,6 +672,7 @@ export function TraderPanel() {
             {/* Re-price tab */}
             {tab === 'reprice' && (
               <div className="space-y-1.5 max-h-[420px] overflow-y-auto pr-0.5">
+                <SnoozedPanel items={snoozedList} open={showSnoozed} onToggle={() => setShowSnoozed(s => !s)} onUndo={unsnooze} />
                 {undercutOrders.length === 0 ? (
                   <p className="text-[10px] text-muted-foreground py-2">
                     {status.running ? 'No undercut orders right now.' : 'Start monitor to load orders.'}
