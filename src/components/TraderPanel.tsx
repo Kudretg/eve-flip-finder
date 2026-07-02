@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { formatISK, formatIskPrice } from '@/lib/utils'
 import { useMonitor } from '@/hooks/useMonitor'
+import { getCancelCandidates, type BuyOrderHealth } from '@/lib/orderHealth'
 import type { MonitorConfig, ActiveOrderUI } from '@/types/electron'
 
 function OrderCard({ order, onCopy, onOpenEve }: {
@@ -49,13 +50,49 @@ function OrderCard({ order, onCopy, onOpenEve }: {
   )
 }
 
+function CancelCard({ order, health, onOpenEve }: {
+  order: ActiveOrderUI
+  health: BuyOrderHealth
+  onOpenEve: (typeId: number) => void
+}) {
+  return (
+    <div className="p-2.5 rounded text-[11px] border border-destructive/40 bg-destructive/5">
+      <div className="flex items-start justify-between gap-1 mb-1">
+        <span className="font-medium text-foreground leading-tight">{order.typeName}</span>
+        {health.competeMargin !== null && (
+          <span className="text-destructive text-[10px] shrink-0 font-mono font-semibold">
+            {health.competeMargin.toFixed(1)}%
+          </span>
+        )}
+      </div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-muted-foreground mb-1.5">
+        <span>Price: <span className="font-mono text-foreground">{formatISK(order.price)}</span></span>
+        <span>Vol: <span className="text-foreground">{order.volumeRemain}/{order.volumeTotal}</span></span>
+        <span>Age: <span className="text-foreground">{Math.floor(health.ageDays)}d</span></span>
+        <span>Locked: <span className="font-mono text-foreground">{formatISK(health.capitalLocked)}</span></span>
+      </div>
+      <ul className="mb-1.5 space-y-0.5">
+        {health.reasons.map((r, i) => (
+          <li key={i} className="text-destructive/90 leading-snug">• {r}</li>
+        ))}
+      </ul>
+      <button
+        onClick={() => onOpenEve(order.typeId)}
+        className="text-[10px] text-muted-foreground hover:text-primary transition-colors"
+      >
+        ⧉ Open in EVE to cancel
+      </button>
+    </div>
+  )
+}
+
 export function TraderPanel() {
   const { status, authStatus, clientId, loginError, isLoggingIn, login, logout, startMonitor, stopMonitor, copyPrice, saveClientId } = useMonitor()
   const [inputClientId, setInputClientId] = useState('')
   const [showClientIdInput, setShowClientIdInput] = useState(false)
   const [configOpen, setConfigOpen] = useState(false)
   const [localConfig, setLocalConfig] = useState<MonitorConfig>(status.config)
-  const [tab, setTab] = useState<'buy' | 'sell' | 'alerts'>('buy')
+  const [tab, setTab] = useState<'buy' | 'sell' | 'cancel' | 'alerts'>('buy')
   const [openEveError, setOpenEveError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -105,6 +142,7 @@ export function TraderPanel() {
   const sellOrders = status.activeOrders.filter(o => !o.isBuyOrder)
   const recentAlerts = status.recentAlerts.filter(a => Date.now() - a.timestamp < 3_600_000)
   const undercutCount = status.activeOrders.filter(o => o.isUndercut).length
+  const cancelCandidates = getCancelCandidates(status.activeOrders, status.config)
 
   return (
     <Card className="border-border/50">
@@ -239,9 +277,10 @@ export function TraderPanel() {
             {/* Tabs */}
             <div className="flex gap-1 border-b border-border">
               {([
-                { key: 'buy', label: 'Buy Orders', count: buyOrders.length },
-                { key: 'sell', label: 'Sell Orders', count: sellOrders.length },
-                { key: 'alerts', label: 'Alerts', count: recentAlerts.length },
+                { key: 'buy', label: 'Buy Orders', count: buyOrders.length, danger: false },
+                { key: 'sell', label: 'Sell Orders', count: sellOrders.length, danger: false },
+                { key: 'cancel', label: 'Cancel', count: cancelCandidates.length, danger: true },
+                { key: 'alerts', label: 'Alerts', count: recentAlerts.length, danger: false },
               ] as const).map(t => (
                 <button
                   key={t.key}
@@ -251,7 +290,11 @@ export function TraderPanel() {
                   }`}
                 >
                   {t.label}
-                  {t.count > 0 && <span className="ml-1 text-muted-foreground">({t.count})</span>}
+                  {t.count > 0 && (
+                    <span className={`ml-1 ${t.danger ? 'text-destructive font-semibold' : 'text-muted-foreground'}`}>
+                      ({t.count})
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -281,6 +324,21 @@ export function TraderPanel() {
                 ) : (
                   sellOrders.map(order => (
                     <OrderCard key={order.orderId} order={order} onCopy={p => copyPrice(p).catch(() => {})} onOpenEve={handleOpenEve} />
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Cancel tab */}
+            {tab === 'cancel' && (
+              <div className="space-y-1.5 max-h-[420px] overflow-y-auto pr-0.5">
+                {cancelCandidates.length === 0 ? (
+                  <p className="text-[10px] text-muted-foreground py-2">
+                    {status.running ? 'No weak buy orders — your book looks healthy.' : 'Start monitor to load orders.'}
+                  </p>
+                ) : (
+                  cancelCandidates.map(({ order, health }) => (
+                    <CancelCard key={order.orderId} order={order} health={health} onOpenEve={handleOpenEve} />
                   ))
                 )}
               </div>

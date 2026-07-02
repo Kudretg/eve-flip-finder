@@ -9,6 +9,7 @@ export interface ActiveOrderUI {
   isUndercut: boolean
   suggestedPrice: number | null
   currentMarketPrice: number | null
+  marketSell: number | null
   issued: string
 }
 

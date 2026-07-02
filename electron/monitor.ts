@@ -9,6 +9,7 @@ const EVETYCOON_BASE = 'https://evetycoon.com/api/v1'
 interface MarketStats {
   maxBuy: number
   minSell: number
+  sellAvgFivePercent: number
 }
 
 // EVE's market tick scales with price magnitude (roughly 4 significant digits),
@@ -43,6 +44,7 @@ export interface ActiveOrderUI {
   isUndercut: boolean
   suggestedPrice: number | null
   currentMarketPrice: number | null
+  marketSell: number | null
   issued: string
 }
 
@@ -154,10 +156,15 @@ async function runIteration(win: BrowserWindow | null) {
     let isUndercut = false
     let suggestedPrice: number | null = null
     let currentMarketPrice: number | null = null
+    let marketSell: number | null = null
 
     if (stats) {
       if (order.is_buy_order) {
         currentMarketPrice = stats.maxBuy
+        // Robust sell-out price (avg of lowest 5% of sells) for flip-margin scoring
+        marketSell = Number.isFinite(stats.sellAvgFivePercent) && stats.sellAvgFivePercent > 0
+          ? stats.sellAvgFivePercent
+          : null
         // We're undercut if someone else has a higher buy order than us
         if (stats.maxBuy > order.price + getTickSize(order.price)) {
           isUndercut = true
@@ -200,6 +207,7 @@ async function runIteration(win: BrowserWindow | null) {
       isUndercut,
       suggestedPrice,
       currentMarketPrice,
+      marketSell,
       issued: order.issued,
     })
   }

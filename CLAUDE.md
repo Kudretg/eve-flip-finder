@@ -69,6 +69,12 @@ Polls every 5 minutes (matches ESI order cache TTL). On each iteration:
 
 `isFirstScan` flag suppresses alerts on the first iteration to avoid false positives on startup. `previousUndercutState` prevents repeated alerts for the same undercut order.
 
+Each buy order also carries `marketSell` (evetycoon's `sellAvgFivePercent` — avg of the lowest 5% of sells, robust to a single lowball outlier) so the renderer can score flip health without a second fetch.
+
+### Weak-buy-order scoring (`src/lib/orderHealth.ts`)
+
+`scoreBuyOrder(order, config)` / `getCancelCandidates(orders, config)` power the Trader Dashboard's **Cancel** tab — buy orders you should cancel and redeploy the ISK. Primary signal is **dead flip margin**: `competeMargin` = the post-fee margin left if you re-bid to top-of-book (`competePrice = undercut ? maxBuy + tick : your price`) vs the `marketSell` sell-out price. An order is a cancel candidate if any reason fires: compete-margin below `config.minMargin` (or negative), buried >5% below the top buy, or stale (>3d old with <10% filled). Ranked by a composite `weakness` score expressed entirely in **percentage points** (`marginDeficit` dominant + `gapPct*0.5` buried + up to 10pp stale), margin-backed orders outranking illiquid ones. Advisory only — no auto-cancel (we don't request a market-write scope); the card links out via `openMarketWindow`.
+
 ### API routing (`src/lib/api.ts`)
 
 ```ts
