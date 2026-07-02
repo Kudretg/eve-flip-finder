@@ -1,7 +1,7 @@
 {
   "name": "eve-flip-finder",
   "private": true,
-  "version": "2.4.0",
+  "version": "2.5.0",
   "type": "module",
   "main": "electron-dist/main.js",
   "scripts": {
@@ -28,6 +28,11 @@
     },
     "win": {
       "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "perMachine": false
     },
     "publish": {
       "provider": "github",

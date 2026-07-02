@@ -29,3 +29,12 @@ export function formatVolume(value: number): string {
   if (value >= 1_000) return `${(value / 1_000).toFixed(1)}K`
   return value.toLocaleString()
 }
+
+// Base-1024 byte sizes (for download speed / transfer amounts).
+export function formatBytes(value: number): string {
+  if (!Number.isFinite(value) || value <= 0) return '0 B'
+  const units = ['B', 'KB', 'MB', 'GB']
+  const i = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1)
+  const n = value / 1024 ** i
+  return `${i === 0 ? Math.round(n) : n.toFixed(1)} ${units[i]}`
+}

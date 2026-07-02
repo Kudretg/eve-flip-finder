@@ -52,6 +52,27 @@ export interface AuthStatus {
   characterName: string
 }
 
+export type UpdaterState =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
+
+export interface UpdaterStatus {
+  state: UpdaterState
+  currentVersion: string
+  manual: boolean
+  version?: string
+  percent?: number
+  bytesPerSecond?: number
+  transferred?: number
+  total?: number
+  message?: string
+}
+
 export interface ElectronAPI {
   getClientId: () => Promise<string>
   setClientId: (clientId: string) => Promise<void>
@@ -65,8 +86,13 @@ export interface ElectronAPI {
   copyToClipboard: (text: string) => Promise<void>
   openMarketWindow: (typeId: number) => Promise<{ success: boolean; error?: string }>
   showNotification: (opts: { body: string; silent?: boolean }) => Promise<void>
+  checkForUpdates: () => Promise<void>
+  downloadUpdate: () => Promise<void>
+  installUpdate: () => Promise<void>
+  getUpdaterStatus: () => Promise<UpdaterStatus>
   onMonitorUpdate: (callback: (status: MonitorStatus) => void) => () => void
   onRepriceNext: (callback: () => void) => () => void
+  onUpdaterStatus: (callback: (status: UpdaterStatus) => void) => () => void
 }
 
 declare global {

@@ -27,6 +27,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Notifications (re-price feedback while unfocused)
   showNotification: (opts: { body: string; silent?: boolean }) => ipcRenderer.invoke('notify:show', opts) as Promise<void>,
 
+  // Updater
+  checkForUpdates: () => ipcRenderer.invoke('updater:check') as Promise<void>,
+  downloadUpdate: () => ipcRenderer.invoke('updater:download') as Promise<void>,
+  installUpdate: () => ipcRenderer.invoke('updater:install') as Promise<void>,
+  getUpdaterStatus: () => ipcRenderer.invoke('updater:get-status') as Promise<unknown>,
+
   // Events from main → renderer
   onMonitorUpdate: (callback: (status: unknown) => void) => {
     const handler = (_: Electron.IpcRendererEvent, status: unknown) => callback(status)
@@ -38,5 +44,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     const handler = () => callback()
     ipcRenderer.on('hotkey:reprice-next', handler)
     return () => ipcRenderer.removeListener('hotkey:reprice-next', handler)
+  },
+
+  onUpdaterStatus: (callback: (status: unknown) => void) => {
+    const handler = (_: Electron.IpcRendererEvent, status: unknown) => callback(status)
+    ipcRenderer.on('updater:status', handler)
+    return () => ipcRenderer.removeListener('updater:status', handler)
   },
 })

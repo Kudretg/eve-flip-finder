@@ -1,14 +1,12 @@
-import { app, BrowserWindow, ipcMain, clipboard, Menu, dialog, globalShortcut, Notification } from 'electron'
-import electronUpdater from 'electron-updater'
+import { app, BrowserWindow, ipcMain, clipboard, Menu, globalShortcut, Notification } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { startOAuthFlow, logout, getAuthStatus } from './auth.js'
 import { getStore, DEFAULT_MONITOR_CONFIG } from './store.js'
 import { startMonitor, stopMonitor, getStatus } from './monitor.js'
 import { openMarketWindow } from './esi.js'
+import { initUpdater, checkForUpdates, downloadUpdate, installUpdate, getUpdaterStatus } from './updater.js'
 import type { MonitorConfig } from './store.js'
-
-const { autoUpdater } = electronUpdater
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const isDev = !app.isPackaged
@@ -64,23 +62,6 @@ function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null })
 }
 
-async function checkForUpdatesManual() {
-  if (isDev) {
-    dialog.showMessageBox({ message: 'Updates are disabled in development.' })
-    return
-  }
-  try {
-    const result = await autoUpdater.checkForUpdates()
-    if (!result?.updateInfo || result.updateInfo.version === app.getVersion()) {
-      dialog.showMessageBox({ message: `You're up to date (v${app.getVersion()}).` })
-    }
-    // If an update is available, electron-updater downloads it and fires
-    // its own 'update-downloaded' notification — no extra dialog needed here.
-  } catch (err) {
-    dialog.showMessageBox({ type: 'error', message: `Update check failed: ${(err as Error).message}` })
-  }
-}
-
 function buildMenu() {
   const template: Electron.MenuItemConstructorOptions[] = [
     ...(process.platform === 'darwin'
@@ -88,7 +69,7 @@ function buildMenu() {
           label: app.name,
           submenu: [
             { role: 'about' as const },
-            { label: 'Check for Updates…', click: checkForUpdatesManual },
+            { label: 'Check for Updates…', click: () => checkForUpdates(true) },
             { type: 'separator' as const },
             { role: 'quit' as const },
           ],
@@ -101,7 +82,7 @@ function buildMenu() {
     {
       label: 'Help',
       submenu: [
-        { label: 'Check for Updates…', click: checkForUpdatesManual },
+        { label: 'Check for Updates…', click: () => checkForUpdates(true) },
       ],
     },
   ]
@@ -112,11 +93,12 @@ app.whenReady().then(() => {
   app.setAppUserModelId('com.eveflipper.app')
   buildMenu()
   createWindow()
+  initUpdater(() => mainWindow)
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
   if (!isDev) {
-    autoUpdater.checkForUpdatesAndNotify().catch(console.error)
+    checkForUpdates(false)
   }
 }).catch(console.error)
 
@@ -204,6 +186,13 @@ ipcMain.handle('notify:show', (_, opts: { body: string; silent?: boolean }) => {
     // Notifications not supported
   }
 })
+
+// ── Updater IPC ───────────────────────────────────────────────────────────────
+
+ipcMain.handle('updater:check', () => checkForUpdates(true))
+ipcMain.handle('updater:download', () => downloadUpdate())
+ipcMain.handle('updater:install', () => installUpdate())
+ipcMain.handle('updater:get-status', () => getUpdaterStatus())
 
 // ── EVE UI IPC ────────────────────────────────────────────────────────────────
 

@@ -10,6 +10,7 @@ import { useItemCatalog, searchCatalog } from '@/data/items'
 import type { Item } from '@/data/items'
 import { formatISK, formatVolume } from '@/lib/utils'
 import { TraderPanel } from '@/components/TraderPanel'
+import { UpdaterBanner } from '@/components/UpdaterBanner'
 import { isElectron } from '@/hooks/useMonitor'
 import type { Hub, Category, SortKey, FlipItem } from '@/types'
 
@@ -374,6 +375,7 @@ export default function App() {
         </div>
       )}
       <div className="flex-1 min-w-0">
+        {isElectron && <UpdaterBanner />}
         {/* Header */}
         <div className="mb-8 flex items-start justify-between">
           <div>
