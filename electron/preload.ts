@@ -24,10 +24,19 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // EVE UI
   openMarketWindow: (typeId: number) => ipcRenderer.invoke('ui:open-market', typeId) as Promise<{ success: boolean; error?: string }>,
 
+  // Notifications (re-price feedback while unfocused)
+  showNotification: (opts: { body: string; silent?: boolean }) => ipcRenderer.invoke('notify:show', opts) as Promise<void>,
+
   // Events from main → renderer
   onMonitorUpdate: (callback: (status: unknown) => void) => {
     const handler = (_: Electron.IpcRendererEvent, status: unknown) => callback(status)
     ipcRenderer.on('monitor:update', handler)
     return () => ipcRenderer.removeListener('monitor:update', handler)
+  },
+
+  onRepriceNext: (callback: () => void) => {
+    const handler = () => callback()
+    ipcRenderer.on('hotkey:reprice-next', handler)
+    return () => ipcRenderer.removeListener('hotkey:reprice-next', handler)
   },
 })

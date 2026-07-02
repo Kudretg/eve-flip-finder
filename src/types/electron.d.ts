@@ -21,6 +21,8 @@ export interface MonitorAlert {
   suggestedPrice: number | null
 }
 
+export type RepriceSort = 'iskAtRisk' | 'margin' | 'none'
+
 export interface MonitorConfig {
   minMargin: number
   minProfit: number
@@ -28,6 +30,10 @@ export interface MonitorConfig {
   hubIndex: number
   brokerFee: number
   salesTax: number
+  repriceHotkey: string
+  repriceHotkeyEnabled: boolean
+  repriceSound: boolean
+  repriceSort: RepriceSort
 }
 
 export interface MonitorStatus {
@@ -52,13 +58,15 @@ export interface ElectronAPI {
   login: (clientId: string) => Promise<{ success: boolean; error?: string }>
   logout: () => Promise<void>
   getAuthStatus: () => Promise<AuthStatus>
-  startMonitor: (config: MonitorConfig) => Promise<void>
+  startMonitor: (config: MonitorConfig) => Promise<{ hotkeyRegistered: boolean }>
   stopMonitor: () => Promise<void>
   getMonitorStatus: () => Promise<MonitorStatus>
   apiFetch: (path: string) => Promise<unknown>
   copyToClipboard: (text: string) => Promise<void>
   openMarketWindow: (typeId: number) => Promise<{ success: boolean; error?: string }>
+  showNotification: (opts: { body: string; silent?: boolean }) => Promise<void>
   onMonitorUpdate: (callback: (status: MonitorStatus) => void) => () => void
+  onRepriceNext: (callback: () => void) => () => void
 }
 
 declare global {

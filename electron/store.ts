@@ -1,5 +1,7 @@
 import Store from 'electron-store'
 
+export type RepriceSort = 'iskAtRisk' | 'margin' | 'none'
+
 export interface MonitorConfig {
   minMargin: number
   minProfit: number
@@ -7,6 +9,10 @@ export interface MonitorConfig {
   hubIndex: number
   brokerFee: number
   salesTax: number
+  repriceHotkey: string
+  repriceHotkeyEnabled: boolean
+  repriceSound: boolean
+  repriceSort: RepriceSort
 }
 
 interface StoreSchema {
@@ -38,4 +44,8 @@ export const DEFAULT_MONITOR_CONFIG: MonitorConfig = {
   hubIndex: 0,
   brokerFee: 3,
   salesTax: 8,
+  repriceHotkey: 'CommandOrControl+Shift+R',
+  repriceHotkeyEnabled: true,
+  repriceSound: true,
+  repriceSort: 'iskAtRisk',
 }

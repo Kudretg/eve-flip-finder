@@ -73,6 +73,35 @@ export function scoreBuyOrder(order: ActiveOrderUI, config: MonitorConfig): BuyO
   return { competeMargin, gapPct, ageDays, capitalLocked, reasons, weakness }
 }
 
+const iskAtRisk = (o: ActiveOrderUI) => o.price * o.volumeRemain
+
+/**
+ * Undercut orders that can be re-priced (have a suggested price), ordered by
+ * the configured priority. One sorted array feeds the list, stepper, and
+ * hotkey so ordering is identical everywhere.
+ */
+export function sortUndercutOrders(orders: ActiveOrderUI[], config: MonitorConfig): ActiveOrderUI[] {
+  const arr = orders.filter(o => o.isUndercut && o.suggestedPrice !== null)
+  switch (config.repriceSort) {
+    case 'none':
+      return arr
+    case 'iskAtRisk':
+      return [...arr].sort((a, b) => iskAtRisk(b) - iskAtRisk(a))
+    case 'margin':
+      // Buys first, thinnest compete-margin first; sells after, by ISK at risk
+      // (no acquisition cost basis for sells, so margin sort doesn't apply).
+      return [...arr].sort((a, b) => {
+        if (a.isBuyOrder !== b.isBuyOrder) return a.isBuyOrder ? -1 : 1
+        if (a.isBuyOrder && b.isBuyOrder) {
+          const ma = scoreBuyOrder(a, config)?.competeMargin ?? Infinity
+          const mb = scoreBuyOrder(b, config)?.competeMargin ?? Infinity
+          return ma - mb
+        }
+        return iskAtRisk(b) - iskAtRisk(a)
+      })
+  }
+}
+
 /**
  * Filter active orders to buy-order cancel candidates, ranked worst-first.
  * Orders with a real (non-null) margin deficit outrank illiquid ones scored

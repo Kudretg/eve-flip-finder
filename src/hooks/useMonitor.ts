@@ -18,6 +18,10 @@ const DEFAULT_STATUS: MonitorStatus = {
     hubIndex: 0,
     brokerFee: 3,
     salesTax: 8,
+    repriceHotkey: 'CommandOrControl+Shift+R',
+    repriceHotkeyEnabled: true,
+    repriceSound: true,
+    repriceSort: 'iskAtRisk',
   },
 }
 
@@ -67,9 +71,9 @@ export function useMonitor() {
     setStatus(DEFAULT_STATUS)
   }, [])
 
-  const startMonitor = useCallback(async (config: MonitorConfig) => {
-    if (!isElectron) return
-    await window.electronAPI!.startMonitor(config)
+  const startMonitor = useCallback(async (config: MonitorConfig): Promise<{ hotkeyRegistered: boolean } | undefined> => {
+    if (!isElectron) return undefined
+    return window.electronAPI!.startMonitor(config)
   }, [])
 
   const stopMonitor = useCallback(async () => {

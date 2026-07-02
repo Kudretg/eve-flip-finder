@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, clipboard, Menu, dialog } from 'electron'
+import { app, BrowserWindow, ipcMain, clipboard, Menu, dialog, globalShortcut, Notification } from 'electron'
 import electronUpdater from 'electron-updater'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -14,6 +14,31 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const isDev = !app.isPackaged
 
 let mainWindow: BrowserWindow | null = null
+let registeredHotkey: string | null = null
+
+// Re-price global hotkey: active only while the monitor runs. Fires an IPC to
+// the renderer, which owns the undercut list + stepper index. Returns whether
+// the accelerator was actually claimed (false = collision / invalid).
+function registerRepriceHotkey(config: MonitorConfig): boolean {
+  unregisterRepriceHotkey()
+  if (!config.repriceHotkeyEnabled || !config.repriceHotkey) return false
+  try {
+    const ok = globalShortcut.register(config.repriceHotkey, () => {
+      mainWindow?.webContents.send('hotkey:reprice-next')
+    })
+    if (ok) registeredHotkey = config.repriceHotkey
+    return ok
+  } catch {
+    return false
+  }
+}
+
+function unregisterRepriceHotkey() {
+  if (registeredHotkey) {
+    globalShortcut.unregister(registeredHotkey)
+    registeredHotkey = null
+  }
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -100,6 +125,10 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
 })
 
+app.on('will-quit', () => {
+  globalShortcut.unregisterAll()
+})
+
 // ── Config IPC ────────────────────────────────────────────────────────────────
 
 ipcMain.handle('config:get-client-id', () => {
@@ -124,6 +153,7 @@ ipcMain.handle('auth:login', async (_, clientId: string) => {
 
 ipcMain.handle('auth:logout', () => {
   stopMonitor(mainWindow)
+  unregisterRepriceHotkey()
   logout()
 })
 
@@ -136,10 +166,13 @@ ipcMain.handle('auth:status', () => {
 ipcMain.handle('monitor:start', (_, config: Partial<MonitorConfig>) => {
   const merged: MonitorConfig = { ...DEFAULT_MONITOR_CONFIG, ...config }
   startMonitor(mainWindow, merged)
+  const hotkeyRegistered = registerRepriceHotkey(merged)
+  return { hotkeyRegistered }
 })
 
 ipcMain.handle('monitor:stop', () => {
   stopMonitor(mainWindow)
+  unregisterRepriceHotkey()
 })
 
 ipcMain.handle('monitor:status', () => {
@@ -158,6 +191,18 @@ ipcMain.handle('api:fetch', async (_, apiPath: string) => {
 
 ipcMain.handle('clipboard:copy', (_, text: string) => {
   clipboard.writeText(text)
+})
+
+// ── Notification IPC ──────────────────────────────────────────────────────────
+// Re-price feedback: the renderer builds the message (it owns the counter +
+// item name); main fires the native notification since the app is unfocused.
+
+ipcMain.handle('notify:show', (_, opts: { body: string; silent?: boolean }) => {
+  try {
+    new Notification({ title: 'EVE Flip Finder', body: opts.body, silent: opts.silent ?? false }).show()
+  } catch {
+    // Notifications not supported
+  }
 })
 
 // ── EVE UI IPC ────────────────────────────────────────────────────────────────
