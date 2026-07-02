@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { MonitorStatus, AuthStatus, MonitorConfig } from '@/types/electron'
+import { formatIskPrice } from '@/lib/utils'
 
 export const isElectron = typeof window !== 'undefined' && !!window.electronAPI
 
@@ -78,7 +79,7 @@ export function useMonitor() {
 
   const copyPrice = useCallback(async (price: number) => {
     if (!isElectron) return
-    await window.electronAPI!.copyToClipboard(price.toFixed(2))
+    await window.electronAPI!.copyToClipboard(formatIskPrice(price))
   }, [])
 
   const saveClientId = useCallback(async (id: string) => {

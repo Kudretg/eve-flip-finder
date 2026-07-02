@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { formatISK } from '@/lib/utils'
+import { formatISK, formatIskPrice } from '@/lib/utils'
 import { useMonitor } from '@/hooks/useMonitor'
 import type { MonitorConfig, ActiveOrderUI } from '@/types/electron'
 
@@ -41,7 +41,7 @@ function OrderCard({ order, onCopy, onOpenEve }: {
             onClick={() => onCopy(order.suggestedPrice!)}
             className="text-[10px] text-primary hover:underline font-mono"
           >
-            Copy {order.suggestedPrice.toFixed(2)} ISK
+            Copy {formatIskPrice(order.suggestedPrice)} ISK
           </button>
         )}
       </div>
@@ -309,7 +309,7 @@ export function TraderPanel() {
                           onClick={() => copyPrice(alert.suggestedPrice!).catch(() => {})}
                           className="mt-1 text-primary hover:underline font-mono text-[10px]"
                         >
-                          Copy {alert.suggestedPrice.toFixed(2)} ISK
+                          Copy {formatIskPrice(alert.suggestedPrice)} ISK
                         </button>
                       )}
                     </div>

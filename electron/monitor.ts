@@ -11,6 +11,17 @@ interface MarketStats {
   minSell: number
 }
 
+// EVE's market tick scales with price magnitude (roughly 4 significant digits),
+// e.g. 0.01 ISK below 1000, 1 ISK at 1000-9999, 1000 ISK at 1,000,000+.
+function getTickSize(price: number): number {
+  if (price < 1000) return 0.01
+  return Math.pow(10, Math.floor(Math.log10(price)) - 3)
+}
+
+function formatIsk(price: number): string {
+  return getTickSize(price) < 1 ? price.toFixed(2) : price.toFixed(0)
+}
+
 async function getTycoonStats(regionId: number, typeId: number): Promise<MarketStats | null> {
   try {
     const res = await fetch(`${EVETYCOON_BASE}/market/stats/${regionId}/${typeId}`)
@@ -83,7 +94,7 @@ function pushAlert(alert: MonitorAlert, copyToClipboard: boolean) {
   }
 
   if (copyToClipboard && alert.suggestedPrice !== null) {
-    clipboard.writeText(alert.suggestedPrice.toFixed(2))
+    clipboard.writeText(formatIsk(alert.suggestedPrice))
   }
 }
 
@@ -117,14 +128,14 @@ async function runIteration(win: BrowserWindow | null) {
         const stats = prevOrder.is_buy_order
           ? await getTycoonStats(prevOrder.region_id, prevOrder.type_id)
           : null
-        const suggestedPrice = stats ? stats.minSell - 0.01 : null
+        const suggestedPrice = stats ? stats.minSell - getTickSize(stats.minSell) : null
 
         pushAlert({
           timestamp: Date.now(),
           type: 'fill',
           typeName,
           message: prevOrder.is_buy_order
-            ? `${typeName} buy filled!${suggestedPrice ? ` Sell at ${suggestedPrice.toFixed(2)} ISK — copied` : ''}`
+            ? `${typeName} buy filled!${suggestedPrice ? ` Sell at ${formatIsk(suggestedPrice)} ISK — copied` : ''}`
             : `${typeName} sell filled!`,
           suggestedPrice: prevOrder.is_buy_order ? suggestedPrice : null,
         }, prevOrder.is_buy_order && suggestedPrice !== null)
@@ -148,16 +159,16 @@ async function runIteration(win: BrowserWindow | null) {
       if (order.is_buy_order) {
         currentMarketPrice = stats.maxBuy
         // We're undercut if someone else has a higher buy order than us
-        if (stats.maxBuy > order.price + 0.01) {
+        if (stats.maxBuy > order.price + getTickSize(order.price)) {
           isUndercut = true
-          suggestedPrice = stats.maxBuy + 0.01
+          suggestedPrice = stats.maxBuy + getTickSize(stats.maxBuy)
         }
       } else {
         currentMarketPrice = stats.minSell
         // We're undercut if someone else has a lower sell order than us
-        if (stats.minSell < order.price - 0.01) {
+        if (stats.minSell < order.price - getTickSize(order.price)) {
           isUndercut = true
-          suggestedPrice = stats.minSell - 0.01
+          suggestedPrice = stats.minSell - getTickSize(stats.minSell)
         }
       }
     }
@@ -172,7 +183,7 @@ async function runIteration(win: BrowserWindow | null) {
           timestamp: Date.now(),
           type: 'undercut',
           typeName,
-          message: `${typeName} ${order.is_buy_order ? 'buy' : 'sell'} order undercut! Update to ${suggestedPrice.toFixed(2)} ISK — copied`,
+          message: `${typeName} ${order.is_buy_order ? 'buy' : 'sell'} order undercut! Update to ${formatIsk(suggestedPrice)} ISK — copied`,
           suggestedPrice,
         }, true)
       }

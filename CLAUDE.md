@@ -79,12 +79,14 @@ const isElectron = typeof window !== 'undefined' && !!window.electronAPI
 
 ### Web data pipeline (`src/hooks/useFlips.ts`)
 
-1. `Promise.all` → `getCachedGroupTypes(groupId)` per group → flat type list (cap `MAX_TYPES = 500` combined across all selected groups — types beyond the cap are silently dropped)
-2. `runConcurrent(tasks, 20, signal)` — 20-worker pool fetches market stats (prevents 500 simultaneous requests)
+1. `Promise.all` → `getCachedGroupTypes(groupId)` per group → flat type list (`MAX_TYPES = 25000` is a safety rail, not an active truncation point for realistic category combos)
+2. Shared `scoreTypes(regionId, types, signal, opts?)` does the concurrent stats fetch + `buildFlipItem` + business filters for every scan mode. `runConcurrent` isolates failures per-task (one bad request doesn't fail the batch) and reports progress via `opts.onProgress`.
 3. Per-type stats cached in `statsCache` (Map keyed `regionId:typeId`, TTL 60s), exposed via exported `getCachedStats(regionId, typeId, signal?)`
 4. TanStack Query v5 `signal` threaded through to every `fetch()` for cancellation on hub/category switch
 
-Raw (pre-fee) profit/margin/liquidity/color computation lives in exported `buildFlipItem(type, stats)` — a pure function shared by the bulk scan and the on-demand catalog-search add (see below). It returns `null` only for degenerate/non-finite numbers; business-rule exclusions (profit ≤ 0, low liquidity) are applied separately by the bulk scan's loop only, so manually-added items aren't subject to them.
+Raw (pre-fee) profit/margin/liquidity/color computation lives in exported `buildFlipItem(type, stats)` — a pure function shared by every scan mode and the on-demand catalog-search add (see below). It returns `null` only for degenerate/non-finite numbers; business-rule exclusions (profit ≤ 0, low liquidity) are applied inside `scoreTypes` only, so manually-added items aren't subject to them.
+
+**Full-catalog scan** (`useAllItemsFlips`, `App.tsx`'s "Scan Entire Catalog" toggle) — bypasses `getCachedGroupTypes`/evetycoon's per-group lookup entirely and feeds `public/items.generated.json` (all ~19k marketable items) straight into `scoreTypes`. Opt-in only: `enabled` requires the toggle to be on, not just the catalog being loaded, so it never fires on mount. Runs at `CATALOG_CONCURRENCY = 14` (separate constant from the category path's `CONCURRENCY = 20` — deliberately capped low to stay polite to evetycoon's free/unauthenticated API) and `staleTime: 5 * 60_000` (matches evetycoon's stats cache TTL, so toggling/remounting within 5 minutes doesn't re-trigger ~19k requests). No progressive rendering — the table paints once the full batch resolves; a `scanProgress` counter (wired via `onProgress`) shows "scanning X / Y items" while it's in flight instead.
 
 In Electron, the same hook works but `apiFetch` routes through IPC instead of direct HTTP.
 

@@ -2,12 +2,15 @@ import { useQuery } from '@tanstack/react-query'
 import { getMarketStats, getMarketGroupTypes } from '@/lib/api'
 import type { MarketStats, MarketType } from '@/lib/api'
 import type { FlipItem } from '@/types'
+import type { Item } from '@/data/items'
 
-const MAX_TYPES = 500
+const MAX_TYPES = 25000 // safety rail, not an active truncation point for realistic category combos
 const MIN_LIQUIDITY = 1
 const CONCURRENCY = 20
+const CATALOG_CONCURRENCY = 14 // full-catalog scan only — keep polite to evetycoon's free/unauthenticated API
 const GROUP_TYPES_TTL = 5 * 60 * 1000
 const STATS_TTL = 60_000
+const CATALOG_STALE_TIME = 5 * 60_000
 
 const groupTypesCache = new Map<number, { data: MarketType[]; ts: number }>()
 const statsCache = new Map<string, { data: MarketStats; ts: number }>()
@@ -96,15 +99,33 @@ export function buildFlipItem(type: { typeID: number; typeName: string }, stats:
   }
 }
 
-async function fetchFlips(regionId: number, groupIds: number[], signal: AbortSignal): Promise<FlipItem[]> {
-  const typeArrays = await Promise.all(groupIds.map(gid => getCachedGroupTypes(gid)))
-  const types = typeArrays.flat().slice(0, MAX_TYPES)
+interface ScoreTypesOpts {
+  concurrency?: number
+  onProgress?: (done: number, total: number) => void
+}
 
-  const tasks = types.map(t => () =>
-    getCachedStats(regionId, t.typeID, signal).then(stats => ({ type: t, stats }))
-  )
+/** Shared by every scan mode: fetch stats per type (fault-tolerant — a failed
+ *  request is skipped, not fatal), build flip items, apply business filters. */
+async function scoreTypes(
+  regionId: number,
+  types: { typeID: number; typeName: string }[],
+  signal: AbortSignal,
+  opts: ScoreTypesOpts = {}
+): Promise<FlipItem[]> {
+  const { concurrency = CONCURRENCY, onProgress } = opts
+  let done = 0
 
-  const statsResults = await runConcurrent(tasks, CONCURRENCY, signal)
+  const tasks = types.map(t => async () => {
+    try {
+      const stats = await getCachedStats(regionId, t.typeID, signal)
+      return { type: t, stats }
+    } finally {
+      done++
+      onProgress?.(done, types.length)
+    }
+  })
+
+  const statsResults = await runConcurrent(tasks, concurrency, signal)
 
   const flips: FlipItem[] = []
   for (const result of statsResults) {
@@ -120,6 +141,22 @@ async function fetchFlips(regionId: number, groupIds: number[], signal: AbortSig
   return flips
 }
 
+async function fetchFlips(regionId: number, groupIds: number[], signal: AbortSignal): Promise<FlipItem[]> {
+  const typeArrays = await Promise.all(groupIds.map(gid => getCachedGroupTypes(gid)))
+  const types = typeArrays.flat().slice(0, MAX_TYPES)
+  return scoreTypes(regionId, types, signal)
+}
+
+async function fetchAllItemsFlips(
+  regionId: number,
+  items: Item[],
+  signal: AbortSignal,
+  onProgress?: (done: number, total: number) => void
+): Promise<FlipItem[]> {
+  const types = items.map(item => ({ typeID: item.typeId, typeName: item.name }))
+  return scoreTypes(regionId, types, signal, { concurrency: CATALOG_CONCURRENCY, onProgress })
+}
+
 export function clearStatsCache() {
   statsCache.clear()
 }
@@ -130,6 +167,23 @@ export function useFlips(regionId: number, groupIds: number[]) {
     queryFn: ({ signal }) => fetchFlips(regionId, groupIds, signal),
     enabled: groupIds.length > 0,
     staleTime: 60_000,
+    retry: 2,
+    retryDelay: (attempt: number) => Math.min(1000 * 2 ** attempt, 10_000),
+  })
+  return { data: query.data, isLoading: query.isLoading, isError: query.isError, error: query.error, refetch: query.refetch }
+}
+
+export function useAllItemsFlips(
+  regionId: number,
+  items: Item[] | undefined,
+  enabled: boolean,
+  onProgress?: (done: number, total: number) => void
+) {
+  const query = useQuery({
+    queryKey: ['flips-all', regionId],
+    queryFn: ({ signal }) => fetchAllItemsFlips(regionId, items!, signal, onProgress),
+    enabled: enabled && !!items?.length,
+    staleTime: CATALOG_STALE_TIME,
     retry: 2,
     retryDelay: (attempt: number) => Math.min(1000 * 2 ** attempt, 10_000),
   })

@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Select } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { useFlips, clearStatsCache, getCachedStats, buildFlipItem } from '@/hooks/useFlips'
+import { useFlips, useAllItemsFlips, clearStatsCache, getCachedStats, buildFlipItem } from '@/hooks/useFlips'
 import { useItemCatalog, searchCatalog } from '@/data/items'
 import type { Item } from '@/data/items'
 import { formatISK, formatVolume } from '@/lib/utils'
@@ -222,6 +222,8 @@ function buildPageButtons(current: number, total: number): (number | '…')[] {
 export default function App() {
   const [hubIndex, setHubIndex] = useState(0)
   const [includeShips, setIncludeShips] = useState(true)
+  const [scanAllItems, setScanAllItems] = useState(false)
+  const [scanProgress, setScanProgress] = useState<{ done: number; total: number } | null>(null)
   const [sort, setSort] = useState<SortKey>('margin')
   const [pageSize, setPageSize] = useState<PageSize>(50)
   const [page, setPage] = useState(1)
@@ -246,8 +248,15 @@ export default function App() {
     [includeShips]
   )
 
-  const { data, isLoading, isError, error, refetch } = useFlips(hub.regionId, activeGroupIds)
+  const categoryResult = useFlips(hub.regionId, activeGroupIds)
   const { data: catalog } = useItemCatalog()
+  const onScanProgress = useCallback((done: number, total: number) => setScanProgress({ done, total }), [])
+  const allItemsResult = useAllItemsFlips(hub.regionId, catalog, scanAllItems, onScanProgress)
+  const { data, isLoading, isError, error, refetch } = scanAllItems ? allItemsResult : categoryResult
+
+  useEffect(() => {
+    if (scanAllItems && allItemsResult.isLoading) setScanProgress(null)
+  }, [scanAllItems, allItemsResult.isLoading])
 
   const REFRESH_COOLDOWN = 15_000
   const onCooldown = Date.now() < refreshCooldownUntil
@@ -403,18 +412,35 @@ export default function App() {
                 </Select>
               </div>
 
+              {!scanAllItems && (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide invisible">
+                    Ships
+                  </label>
+                  <label className="flex items-center gap-2 h-9 cursor-pointer text-xs text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={includeShips}
+                      onChange={e => setIncludeShips(e.target.checked)}
+                      className="accent-primary w-4 h-4"
+                    />
+                    Include Ships
+                  </label>
+                </div>
+              )}
+
               <div className="flex flex-col gap-1.5">
                 <label className="text-xs text-muted-foreground font-medium uppercase tracking-wide invisible">
-                  Ships
+                  Catalog
                 </label>
-                <label className="flex items-center gap-2 h-9 cursor-pointer text-xs text-foreground">
+                <label className="flex items-center gap-2 h-9 cursor-pointer text-xs text-foreground" title="Scans all ~19k marketable items instead of curated categories. May take a couple minutes on first load.">
                   <input
                     type="checkbox"
-                    checked={includeShips}
-                    onChange={e => setIncludeShips(e.target.checked)}
+                    checked={scanAllItems}
+                    onChange={e => setScanAllItems(e.target.checked)}
                     className="accent-primary w-4 h-4"
                   />
-                  Include Ships
+                  Scan Entire Catalog
                 </label>
               </div>
 
@@ -582,7 +608,12 @@ export default function App() {
         {/* Top Trades */}
         <div className="mb-6">
           <h2 className="text-xs text-muted-foreground font-medium uppercase tracking-wide mb-3">
-            Top Trades — {includeShips ? 'All Items' : 'All Items (no ships)'} · {hub.label}
+            Top Trades — {scanAllItems ? 'Full Catalog Scan' : includeShips ? 'All Items' : 'All Items (no ships)'} · {hub.label}
+            {scanAllItems && isLoading && scanProgress && (
+              <span className="normal-case font-normal ml-2">
+                (scanning {scanProgress.done.toLocaleString()} / {scanProgress.total.toLocaleString()} items…)
+              </span>
+            )}
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             {isLoading
@@ -649,7 +680,7 @@ export default function App() {
               <CardTitle className="text-base flex items-center gap-2">
                 <span>{hub.label}</span>
                 <span className="text-muted-foreground font-normal">·</span>
-                <span className="text-muted-foreground font-normal">{includeShips ? 'All Items' : 'All Items (no ships)'}</span>
+                <span className="text-muted-foreground font-normal">{scanAllItems ? 'Full Catalog Scan' : includeShips ? 'All Items' : 'All Items (no ships)'}</span>
               </CardTitle>
               {data && !isLoading && (
                 <div className="flex items-center gap-1.5">

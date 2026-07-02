@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, clipboard } from 'electron'
+import { app, BrowserWindow, ipcMain, clipboard, Menu, dialog } from 'electron'
 import electronUpdater from 'electron-updater'
 import path from 'path'
 import { fileURLToPath } from 'url'
@@ -39,8 +39,53 @@ function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null })
 }
 
+async function checkForUpdatesManual() {
+  if (isDev) {
+    dialog.showMessageBox({ message: 'Updates are disabled in development.' })
+    return
+  }
+  try {
+    const result = await autoUpdater.checkForUpdates()
+    if (!result?.updateInfo || result.updateInfo.version === app.getVersion()) {
+      dialog.showMessageBox({ message: `You're up to date (v${app.getVersion()}).` })
+    }
+    // If an update is available, electron-updater downloads it and fires
+    // its own 'update-downloaded' notification — no extra dialog needed here.
+  } catch (err) {
+    dialog.showMessageBox({ type: 'error', message: `Update check failed: ${(err as Error).message}` })
+  }
+}
+
+function buildMenu() {
+  const template: Electron.MenuItemConstructorOptions[] = [
+    ...(process.platform === 'darwin'
+      ? [{
+          label: app.name,
+          submenu: [
+            { role: 'about' as const },
+            { label: 'Check for Updates…', click: checkForUpdatesManual },
+            { type: 'separator' as const },
+            { role: 'quit' as const },
+          ],
+        }]
+      : []),
+    { role: 'fileMenu' as const },
+    { role: 'editMenu' as const },
+    { role: 'viewMenu' as const },
+    { role: 'windowMenu' as const },
+    {
+      label: 'Help',
+      submenu: [
+        { label: 'Check for Updates…', click: checkForUpdatesManual },
+      ],
+    },
+  ]
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
 app.whenReady().then(() => {
   app.setAppUserModelId('com.eveflipper.app')
+  buildMenu()
   createWindow()
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
