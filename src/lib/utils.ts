@@ -5,6 +5,14 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
 
+// Blueprints & SKINs aren't fast-flip targets — exclude them from Flip Finder results.
+// SKINs are uppercase "SKIN"; blueprints always contain "Blueprint". Word-boundary
+// avoids false hits; case-insensitive covers both.
+const EXCLUDED_ITEM_RE = /\bblueprint\b|\bskin\b/i
+export function isExcludedFlipItem(name: string): boolean {
+  return EXCLUDED_ITEM_RE.test(name)
+}
+
 export function formatISK(value: number): string {
   if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)}B`
   if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`

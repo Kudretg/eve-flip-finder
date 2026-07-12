@@ -8,7 +8,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useFlips, useAllItemsFlips, clearStatsCache, getCachedStats, buildFlipItem } from '@/hooks/useFlips'
 import { useItemCatalog, searchCatalog } from '@/data/items'
 import type { Item } from '@/data/items'
-import { formatISK, formatVolume } from '@/lib/utils'
+import { formatISK, formatVolume, isExcludedFlipItem } from '@/lib/utils'
 import { TraderPanel } from '@/components/TraderPanel'
 import { UpdaterBanner } from '@/components/UpdaterBanner'
 import { isElectron } from '@/hooks/useMonitor'
@@ -286,6 +286,7 @@ export default function App() {
   }
 
   function addCatalogItem(item: Item) {
+    if (isExcludedFlipItem(item.name)) return // blueprints & SKINs excluded from flip results
     if (manualItemsRef.current.has(item.typeId)) return
     manualItemsRef.current.set(item.typeId, item)
     setManualFlips(prev => new Map(prev).set(item.typeId, 'loading'))
@@ -347,9 +348,15 @@ export default function App() {
     return [...adjustedData].sort((a, b) => score(b) - score(a)).slice(0, 10)
   }, [adjustedData])
 
+  // Blueprints & SKINs aren't flip targets — keep them out of the search catalog once.
+  const flippableCatalog = useMemo(
+    () => (catalog ?? []).filter(item => !isExcludedFlipItem(item.name)),
+    [catalog]
+  )
+
   const suggestions = useMemo(
-    () => searchCatalog(catalog ?? [], search, 50),
-    [catalog, search]
+    () => searchCatalog(flippableCatalog, search, 50),
+    [flippableCatalog, search]
   )
 
   function selectSuggestion(item: Item) {

@@ -3,6 +3,7 @@ import { getMarketStats, getMarketGroupTypes } from '@/lib/api'
 import type { MarketStats, MarketType } from '@/lib/api'
 import type { FlipItem } from '@/types'
 import type { Item } from '@/data/items'
+import { isExcludedFlipItem } from '@/lib/utils'
 
 const MAX_TYPES = 25000 // safety rail, not an active truncation point for realistic category combos
 const MIN_LIQUIDITY = 1
@@ -115,13 +116,16 @@ async function scoreTypes(
   const { concurrency = CONCURRENCY, onProgress } = opts
   let done = 0
 
-  const tasks = types.map(t => async () => {
+  // Skip blueprints & SKINs before the stats fetch — no wasted evetycoon calls.
+  const scannable = types.filter(t => !isExcludedFlipItem(t.typeName))
+
+  const tasks = scannable.map(t => async () => {
     try {
       const stats = await getCachedStats(regionId, t.typeID, signal)
       return { type: t, stats }
     } finally {
       done++
-      onProgress?.(done, types.length)
+      onProgress?.(done, scannable.length)
     }
   })
 

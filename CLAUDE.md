@@ -123,6 +123,8 @@ Filter for "marketable": `published === true && marketGroupID != null`. Conditio
 
 The search bar in `App.tsx` uses `searchCatalog` against the full catalog for its autocomplete dropdown (not just currently-scanned items). Selecting an item not already in the scanned set triggers an on-demand fetch via `getCachedStats`/`buildFlipItem` for the **currently selected hub**, shown as a loading row (`manualFlips` state) until it resolves, then merged into `adjustedData` before the fee-adjustment step. Manually-added items (`FlipItem.isManual`) skip the minMargin/min-buy/max-buy threshold filters — they were deliberately searched for, so they don't disappear right after being added — but still get the same fee-adjusted math and rendering as scanned rows. Switching hubs re-fetches all manually-added items against the new region.
 
+**Blueprint/SKIN exclusion:** `isExcludedFlipItem(name)` (`src/lib/utils.ts`, regex `/\bblueprint\b|\bskin\b/i`) keeps blueprints & SKINs out of all Flip Finder results. Applied at the single scan choke point `scoreTypes` (filters `types` *before* the stats fetch, so no wasted evetycoon calls — covers both category and full-catalog scans), the search autocomplete (`suggestions` memo), and `addCatalogItem` (defensive guard). The Trade Dashboard is deliberately untouched — it reads `status.activeOrders` from the monitor, a separate pipeline, so orders you already hold on a blueprint/SKIN still show in Buy/Sell/Re-price/Cancel.
+
 ## Fee adjustment formula
 
 Applied in `adjustedData` useMemo in `App.tsx`:

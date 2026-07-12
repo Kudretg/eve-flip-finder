@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, clipboard, Menu, globalShortcut, Notification } from 'electron'
+import { app, BrowserWindow, ipcMain, clipboard, Menu, globalShortcut, Notification, shell } from 'electron'
 import path from 'path'
 import { fileURLToPath } from 'url'
 import { startOAuthFlow, logout, getAuthStatus } from './auth.js'
@@ -51,6 +51,14 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false,
     },
+  })
+
+  // External links (GitHub, evetycoon, ESI) open in the OS default browser, never an in-app window.
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (url.startsWith('https://') || url.startsWith('http://')) {
+      shell.openExternal(url)
+    }
+    return { action: 'deny' }
   })
 
   if (isDev) {
