@@ -60,7 +60,13 @@ If a user linked before `esi-ui.open_window.v1` was added, they must Unlink and 
 
 `src/components/UpdaterBanner.tsx` (via `useUpdater`, Electron-only, top of `App.tsx`) renders the flow: checking → **Download** prompt → progress bar (`percent` + `formatBytes(bytesPerSecond)/s`) → **Restart & Install**. Install calls `autoUpdater.quitAndInstall(true, true)` (`isSilent`, `isForceRunAfter`) — the bare call would run the assisted wizard on every silent auto-update. `update-downloaded` only fires after the sha512 checksum from `latest.yml` matches (file integrity; no trusted code signature on the self-signed build — the banner says "downloaded", not "verified").
 
-The feed is GitHub Releases via `build.publish` (`owner`/`repo`, no token for a public repo). The installer is the **assisted NSIS wizard** (`build.nsis`: `oneClick:false`, `allowToChangeInstallationDirectory:true`, `perMachine:false`) — the user picks the install dir on manual runs; auto-update installs stay silent. To ship an update: bump `version`, `npm run electron:build`, then `gh release create vX.Y.Z "release/EVE Flip Finder Setup X.Y.Z.exe" "release/…blockmap" release/latest.yml` — **`latest.yml` is required** or electron-updater can't see the release.
+The feed is GitHub Releases via `build.publish` (`owner`/`repo`, no token for a public repo). The installer is the **assisted NSIS wizard** (`build.nsis`: `oneClick:false`, `allowToChangeInstallationDirectory:true`, `perMachine:false`) — the user picks the install dir on manual runs; auto-update installs stay silent. To ship an update: bump `version`, `npm run electron:build`, then upload the assets to a GitHub release. **Critical filename gotcha:** electron-builder writes `latest.yml` with **dash-separated** asset names (`EVE-Flip-Finder-Setup-X.Y.Z.exe`), but the built file on disk has **spaces** (`EVE Flip Finder Setup X.Y.Z.exe`) and `gh release create` uploads it converting spaces → **dots** (`EVE.Flip.Finder.Setup...`), so electron-updater requests the dash URL from `latest.yml` and gets a **404**. Upload under dash names so they match `latest.yml`:
+```bash
+cp "release/EVE Flip Finder Setup X.Y.Z.exe" "release/EVE-Flip-Finder-Setup-X.Y.Z.exe"
+cp "release/EVE Flip Finder Setup X.Y.Z.exe.blockmap" "release/EVE-Flip-Finder-Setup-X.Y.Z.exe.blockmap"
+gh release create vX.Y.Z "release/EVE-Flip-Finder-Setup-X.Y.Z.exe" "release/EVE-Flip-Finder-Setup-X.Y.Z.exe.blockmap" release/latest.yml
+```
+(Or `electron-builder --publish always`, which uploads dash-named assets itself.) **`latest.yml` is required** or electron-updater can't see the release.
 
 ### Monitor loop (`electron/monitor.ts`)
 
