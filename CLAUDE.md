@@ -31,6 +31,8 @@ Two separate build targets share the same React UI:
 
 **Electron** — desktop app wrapping the same UI. `electron/main.ts` is the Node.js main process; `electron/preload.ts` bridges it to the renderer via `contextBridge`. All IPC is defined in `electron/preload.ts` and typed in `src/types/electron.d.ts`.
 
+**External links:** `main.ts` registers `mainWindow.webContents.setWindowOpenHandler` — any `http(s)` URL (GitHub, evetycoon, ESI "Register app", all `<a target="_blank">`) is handed to `shell.openExternal` (OS default browser) and the in-app child window is denied. The renderer keeps plain `target="_blank"` anchors (correct for the web build); this handler is the Electron-only redirect. No IPC needed.
+
 ### Electron IPC channels
 
 | Channel | Direction | Purpose |
